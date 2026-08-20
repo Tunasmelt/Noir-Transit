@@ -1365,11 +1365,11 @@ inZone("arrival",()=>{
       g.fillText("MERIDIAN LINE",s/2,s/2-6); g.font="18px Courier New"; g.fillStyle="#9aa6b0"; g.fillText("HALDANE · WESTBOUND",s/2,s/2+26); },256);
     const sign=new THREE.Mesh(new THREE.PlaneGeometry(2.6,.65),new THREE.MeshBasicMaterial({map:sg})); sign.position.set(ox+8,2.3,1.3); scene.add(sign); }
   // WAY OUT sign fixed to the east wall above the doorway
-  { const signBack=box(.05,.38,1.5,new THREE.MeshBasicMaterial({color:0x10140c}));
-    signBack.position.set(ox+22.29,2.92,3.4); scene.add(signBack);
-    const wg=tex((g,s)=>{ g.clearRect(0,0,s,s); g.fillStyle="#d8c060";g.font="bold 34px Courier New";g.textAlign="center";
-      g.fillText("WAY OUT",s/2,s*.48); g.font="26px Courier New"; g.fillText("\u2191",s/2,s*.84); },256);
-    const ws=new THREE.Mesh(new THREE.PlaneGeometry(1.42,.34),new THREE.MeshBasicMaterial({map:wg,transparent:true,side:THREE.DoubleSide,depthWrite:false})); ws.position.set(ox+22.25,2.92,3.4); ws.rotation.y=-Math.PI/2; scene.add(ws);
+  { const signBack=box(.05,.3,1.22,new THREE.MeshBasicMaterial({color:0x10140c}));
+    signBack.position.set(ox+22.29,2.76,3.4); scene.add(signBack);
+    const wg=tex((g,s)=>{ g.clearRect(0,0,s,s); g.fillStyle="#d8c060";g.font="bold 29px Courier New";g.textAlign="center";
+      g.fillText("WAY OUT",s/2,s*.48); g.font="23px Courier New"; g.fillText("\u2191",s/2,s*.86); },256);
+    const ws=new THREE.Mesh(new THREE.PlaneGeometry(1.18,.27),new THREE.MeshBasicMaterial({map:wg,transparent:true,side:THREE.DoubleSide,depthWrite:false})); ws.position.set(ox+22.25,2.76,3.4); ws.rotation.y=-Math.PI/2; scene.add(ws);
     const gl=new THREE.PointLight(0xd8c060,.42,4,1.8); gl.position.set(ox+21.9,2.45,3.4); scene.add(gl); }
   // a couple of platform benches + a bin (lived-in)
   for(const bx of[ox+5,ox+15]){ const seat=box(1.4,.05,.4,M.woodDark); seat.position.set(bx,.5,1.7); scene.add(seat);
@@ -1423,7 +1423,7 @@ inZone("arrival",()=>{
   ixTrainLeave.enabled=false;
 
   // Exit is a flat station doorway now; there is no staircase in this level.
-  { const threshold=box(.34,.08,2.2,new THREE.MeshLambertMaterial({color:0xb5b18f})); threshold.position.set(ox+21.95,.04,3.4); scene.add(threshold);
+  { const threshold=box(.34,.05,2.2,new THREE.MeshLambertMaterial({color:0x4a514c})); threshold.position.set(ox+21.95,.025,3.4); scene.add(threshold);
     const exitTrigger=box(1.4,2.2,1.5,new THREE.MeshBasicMaterial({visible:false,side:THREE.DoubleSide})); exitTrigger.position.set(ox+21.7,1.1,3.4); scene.add(exitTrigger);
     interact(exitTrigger,"Up to the street",()=>{
       if(travelLock)return;
