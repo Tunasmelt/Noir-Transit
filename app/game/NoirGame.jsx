@@ -48,6 +48,28 @@ export default function NoirGame() {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: STYLE_CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: `
+        html[data-zone="metro"] #battery,
+        html[data-zone="metro"] #inv,
+        html[data-zone="metro"] #journalHint,
+        html[data-zone="metro"] #menuToggle,
+        html[data-zone="metro"] #dbgToggle {
+          text-shadow: 0 0 7px #000, 0 1px 0 #000;
+          filter: drop-shadow(0 1px 2px rgba(0,0,0,.9));
+        }
+        html[data-zone="metro"] #battery::before,
+        html[data-zone="metro"] #inv::before {
+          content: "";
+          position: absolute;
+          inset: -6px -8px;
+          background: rgba(3,6,8,.28);
+          z-index: -1;
+        }
+        html[data-zone="metro"] #prompt {
+          color: #e0dfca;
+          text-shadow: 0 0 8px #000, 0 1px 0 #000;
+        }
+      ` }} />
       <div ref={containerRef} dangerouslySetInnerHTML={{ __html: MARKUP_HTML }} />
     </>
   );

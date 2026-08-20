@@ -195,6 +195,7 @@ function inZone(name,fn){ const p=ZONE; ZONE=name; fn(); ZONE=p; }
 let onZoneEnter={}; // name -> fn fired after travel
 function setZone(name){
   curZone=name;
+  document.documentElement.dataset.zone=name;
   for(const k in zoneGroups)zoneGroups[k].visible=(k===name);
   const z=ZONES[name];
   player.floorY=(z.ground?z.ground(player.x,player.z):0)||0;
@@ -493,6 +494,12 @@ function mkCeilingLamp(color=0xc8a070,on=true,intensity=.85,dist=6){ const g=gro
 function mkFluorescent(){ const g=group(); const tube=box(1.2,.06,.14,new THREE.MeshBasicMaterial({color:0xb8c8b0})); g.add(tube);
   const housing=box(1.26,.05,.2,M.metalDark); housing.position.y=.05; g.add(housing);
   const L=new THREE.PointLight(0xaec0b0,.75,5.5,2); L.position.y=-.2; g.add(L); g.userData.light=L; g.userData.tube=tube; return g; }
+function mkMetroFluorescent(){ const g=group();
+  const tube=box(.86,.035,.09,new THREE.MeshBasicMaterial({color:0xaab9a9})); g.add(tube);
+  const housing=box(.94,.045,.14,M.metalDark); housing.position.y=.04; g.add(housing);
+  const L=new THREE.PointLight(0xaec0b0,.38,4.2,2); L.position.y=-.16; g.add(L);
+  g.userData.light=L; g.userData.tube=tube; return g;
+}
 function mkSconce(on){ const g=group(); const b=box(.1,.22,.08,M.metalDark); g.add(b);
   const sh=new THREE.Mesh(new THREE.CylinderGeometry(.06,.09,.12,8,1,true),new THREE.MeshLambertMaterial({color:0x8a7a5a,side:THREE.DoubleSide})); sh.position.set(0,.08,.06); g.add(sh);
   if(on){ const L=new THREE.PointLight(0xc8a070,.6,4.2,2); L.position.set(0,.1,.15); g.add(L);
@@ -2420,6 +2427,10 @@ function assembleKey(){
 let trainGrp=null, figureBoarded=false, boardDoor=null, trainInteriorDoor=null;
 inZone("metro",()=>{
   const ox=800;
+  // Subway-only readability lift; shared post-processing remains unchanged.
+  const metroFill=new THREE.HemisphereLight(0x73818c,0x15181d,.42); scene.add(metroFill);
+  const metroPlatform=new THREE.PointLight(0x71828a,.32,12,2); metroPlatform.position.set(ox+14,2.2,3.2); scene.add(metroPlatform);
+  const metroExit=new THREE.PointLight(0xc8b070,.7,6,1.7); metroExit.position.set(ox+20.8,2.2,3.4); scene.add(metroExit);
   floorPlane(ox+14,3,28,6,TEX.tile,.9,0x9a9890);
   ceilPlane(ox+14,5,28,10,3.2);
   wall("x",ox,ox+28,0,3.2,0,TEX.tile,.8,.16);
@@ -2441,11 +2452,15 @@ inZone("metro",()=>{
     p2.position.set(ox+21.5,1.85,.2); p2.rotation.z=.03; scene.add(p2); }
   // the stairs he came down by — rising back toward the street, out of reach now
   { const conc2=new THREE.MeshLambertMaterial({map:TEX.concrete});
+    const stepTop=new THREE.MeshLambertMaterial({map:TEX.concrete,color:0x777b75});
     // Closed west exit: treads descend toward the platform in one consistent
     // direction instead of alternating height and position.
     const exitSteps=7;
     for(let i2=0;i2<exitSteps;i2++){ const top=.18*(exitSteps-i2);
-      const st=box(.25,top,1.9,conc2); st.position.set(ox+.2+i2*.25,top/2,3.2); scene.add(st); }
+      const sx=ox+.2+i2*.25;
+      const st=box(.25,top,1.9,conc2); st.position.set(sx,top/2,3.2); scene.add(st);
+      const tread=box(.22,.018,1.82,stepTop); tread.position.set(sx,top+.01,3.2); scene.add(tread);
+    }
     const back=new THREE.Mesh(new THREE.PlaneGeometry(2.0,2.4),new THREE.MeshBasicMaterial({color:0x020304}));
     back.position.set(ox-1.7,1.6,3.2); back.rotation.y=Math.PI/2; scene.add(back);
     const ex=new THREE.Mesh(new THREE.PlaneGeometry(.9,.28),new THREE.MeshBasicMaterial({map:tex((g,s)=>{ g.fillStyle="#0a2416";g.fillRect(0,0,s,s);
@@ -2459,16 +2474,17 @@ inZone("metro",()=>{
   for(let x=ox+3;x<ox+27;x+=5){ const p=box(.5,3.2,.5,new THREE.MeshLambertMaterial({map:TEX.tile})); p.position.set(x,1.6,3.4); scene.add(p); addCollider(x,3.4,.7,.7); }
   const sg=new THREE.Mesh(new THREE.PlaneGeometry(3,.4),new THREE.MeshBasicMaterial({map:tex((g,s)=>{ g.fillStyle="#101014"; g.fillRect(0,0,s,s);
     g.fillStyle="#c8c8c0"; g.font="bold 36px Courier New"; g.textAlign="center"; g.fillText("HOMEBOUND — LOCAL",s/2,s/2+12); },256)})); sg.position.set(ox+14,2.5,5.8); scene.add(sg);
-  for(const x of[ox+6,ox+14,ox+22]){ const f=mkFluorescent(); f.position.set(x,3.14,3); scene.add(f); }
+  for(const x of[ox+6,ox+14,ox+22]){ const f=mkMetroFluorescent(); f.position.set(x,3.08,3); scene.add(f); }
   trainGrp=new THREE.Group(); scene.add(trainGrp);
   const carMat=surf(TEX.metroMetal,8.6,2.6,2.0,0x535c63);
   for(let c=0;c<3;c++){ const cx=c*9-9; const car=box(8.6,2.6,2.2,carMat); car.position.set(cx,1.3,0); trainGrp.add(car);
-    for(let w=0;w<5;w++){ const win=new THREE.Mesh(new THREE.PlaneGeometry(1.1,.7),new THREE.MeshBasicMaterial({color:0x6d776f})); win.position.set(cx-3.2+w*1.6,1.7,-1.12); win.rotation.y=Math.PI; trainGrp.add(win); }
+    for(let w=0;w<5;w++){ const win=new THREE.Mesh(new THREE.PlaneGeometry(1.1,.7),new THREE.MeshLambertMaterial({color:0x35464d,emissive:0x10181c})); win.position.set(cx-3.2+w*1.6,1.7,-1.12); win.rotation.y=Math.PI; trainGrp.add(win); }
     const floor=box(8.2,.08,1.8,surf(TEX.metroFloor,8.2,1.8,1.0)); floor.position.set(cx,.58,0); trainGrp.add(floor);
     const ceiling=box(8.2,.08,1.8,surf(TEX.metroMetal,8.2,1.8,1.6,0x40494e)); ceiling.position.set(cx,2.42,0); trainGrp.add(ceiling);
     const innerWall=box(8.1,1.65,.08,surf(TEX.metroMetal,8.1,1.65,1.8,0x4a555a)); innerWall.position.set(cx,1.48,.78); trainGrp.add(innerWall);
     for(const sx of[-2.7,0,2.7]){ const seat=box(1.7,.12,.42,new THREE.MeshLambertMaterial({color:0x4b3f4d})); seat.position.set(cx+sx,.86,.38); trainGrp.add(seat); }
-    const strip=box(6.6,.035,.12,new THREE.MeshBasicMaterial({color:0xc1c6aa})); strip.position.set(cx,2.36,-.25); trainGrp.add(strip);
+    const strip=box(6.6,.035,.12,new THREE.MeshBasicMaterial({color:0xb4bba2})); strip.position.set(cx,2.36,-.25); trainGrp.add(strip);
+    const interiorLight=new THREE.PointLight(0xb7c9bd,.24,4.5,1.8); interiorLight.position.set(cx,1.85,-.15); trainGrp.add(interiorLight);
   }
   trainGrp.position.set(ox+42,0,8); trainGrp.userData.arriving=false;
   boardDoor=new THREE.Mesh(new THREE.PlaneGeometry(1.2,2.2),new THREE.MeshBasicMaterial({color:0x181a20}));
