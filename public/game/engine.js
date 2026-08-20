@@ -1350,11 +1350,11 @@ inZone("arrival",()=>{
   { const sg=tex((g,s)=>{ g.fillStyle="#0c1a2c";g.fillRect(0,0,s,s); g.fillStyle="#7fb0e0";g.font="bold 30px Courier New";g.textAlign="center";
       g.fillText("MERIDIAN LINE",s/2,s/2-6); g.font="18px Courier New"; g.fillStyle="#9aa6b0"; g.fillText("HALDANE · WESTBOUND",s/2,s/2+26); },256);
     const sign=new THREE.Mesh(new THREE.PlaneGeometry(2.6,.65),new THREE.MeshBasicMaterial({map:sg})); sign.position.set(ox+8,2.3,1.3); scene.add(sign); }
-  // WAY OUT sign over the east exit
+  // WAY OUT sign fixed to the east wall above the doorway
   { const wg=tex((g,s)=>{ g.fillStyle="#10140c";g.fillRect(0,0,s,s); g.fillStyle="#d8c060";g.font="bold 40px Courier New";g.textAlign="center";
       g.fillText("WAY OUT",s/2,s/2-2); g.font="30px Courier New"; g.fillText("\u2191",s/2,s/2+40); },256);
-    const ws=new THREE.Mesh(new THREE.PlaneGeometry(1.5,.5),new THREE.MeshBasicMaterial({map:wg})); ws.position.set(ox+21.7,2.35,3.4); ws.rotation.y=-Math.PI/2; scene.add(ws);
-    const gl=new THREE.PointLight(0xd8c060,.5,5,1.8); gl.position.set(ox+21.4,2.1,3.4); scene.add(gl); }
+    const ws=new THREE.Mesh(new THREE.PlaneGeometry(1.5,.5),new THREE.MeshBasicMaterial({map:wg,side:THREE.DoubleSide})); ws.position.set(ox+22.22,2.82,3.4); ws.rotation.y=-Math.PI/2; scene.add(ws);
+    const gl=new THREE.PointLight(0xd8c060,.42,4,1.8); gl.position.set(ox+21.9,2.45,3.4); scene.add(gl); }
   // a couple of platform benches + a bin (lived-in)
   for(const bx of[ox+5,ox+15]){ const seat=box(1.4,.05,.4,M.woodDark); seat.position.set(bx,.5,1.7); scene.add(seat);
     for(const lx of[-.6,.6]){ const leg=box(.06,.5,.34,M.metalDark); leg.position.set(bx+lx,.25,1.7); scene.add(leg);} }
@@ -1362,9 +1362,17 @@ inZone("arrival",()=>{
   // ── the train: a textured shell with visible carriage interior and three door bays ──
   arrTrain=group();
   const carM=surf(TEX.metroMetal,22,2.5,2.4,0xaeb6b4);
-  const car=box(22,2.5,1.7,carM); car.position.set(0,1.5,0); arrTrain.add(car);
+  // Open the boarding side so the carriage is a real readable interior,
+  // rather than a solid box with an invisible teleport trigger.
+  const car=new THREE.Group();
+  const roof=box(22,.28,1.7,carM); roof.position.set(0,2.36,0); car.add(roof);
+  const lower=box(22,.55,1.7,carM); lower.position.set(0,.48,0); car.add(lower);
+  const rear=box(22,1.55,.12,carM); rear.position.set(0,1.45,.79); car.add(rear);
+  const frontTop=box(22,.28,.12,carM); frontTop.position.set(0,2.08,-.82); car.add(frontTop);
+  const frontBase=box(22,.32,.12,carM); frontBase.position.set(0,.82,-.82); car.add(frontBase);
+  arrTrain.add(car);
   const skirt=box(22,.5,1.72,surf(TEX.metroMetal,22,.5,1.2,0x343c42)); skirt.position.set(0,.35,0); arrTrain.add(skirt);
-  const stripe=box(22,.18,1.74,new THREE.MeshLambertMaterial({color:0x2a4a7a})); stripe.position.set(0,1.05,0); arrTrain.add(stripe);
+  const stripe=box(22,.18,.06,new THREE.MeshLambertMaterial({color:0x2a4a7a})); stripe.position.set(0,1.05,-.87); arrTrain.add(stripe);
   // lit windows
   const winM=new THREE.MeshBasicMaterial({color:0x223038});
   for(let i=-9;i<=9;i++){ const w=box(.7,.6,.025,winM); w.position.set(i*1.05,1.7,-.87); arrTrain.add(w); }
@@ -1385,6 +1393,10 @@ inZone("arrival",()=>{
     dgroup.position.set(dx,0,0);
     dgroup.userData.dl=dl; dgroup.userData.dr=dr; arrTrain.add(dgroup); arrDoors.push(dgroup); }
   arrTrain.position.set(ox+11,0,7.3); scene.add(arrTrain);
+  // Train collision follows the stationary arrival train, leaving a real
+  // doorway gap at the middle carriage entrance.
+  addCollider(ox+5.5,7.3,9.0,1.6,"arrivalTrain");
+  addCollider(ox+16.5,7.3,9.0,1.6,"arrivalTrain");
   const trainInside=box(1.0,1.8,.7,new THREE.MeshBasicMaterial({visible:false,side:THREE.DoubleSide}));
   trainInside.position.set(ox+11,1.35,6.65); scene.add(trainInside);
   let ixTrainLeave=null;
@@ -1394,33 +1406,14 @@ inZone("arrival",()=>{
   ixTrainLeave=interact(trainLeave,"Step back onto the platform",()=>{ player.x=ox+11; player.z=5.9; player.floorY=0; player.yaw=0; ixTrainLeave.enabled=false; say(null,"The platform is colder. The train waits with its doors open.",2800); },{range:1.6});
   ixTrainLeave.enabled=false;
 
-  // exit at the east end — a REAL flight of tiled steps up to the street
-  { const conc2=new THREE.MeshLambertMaterial({map:TEX.concrete});
-    // Eight evenly sized steps run east toward the exit landing. Their top
-    // surfaces match arrival.ground, so the player never climbs or drops.
-    const stepCount=8, run=3.2, tread=run/stepCount, rise=1.0/stepCount;
-    for(let i2=0;i2<stepCount;i2++){ const top=rise*(i2+1);
-      const st=box(tread,top,1.9,conc2); st.position.set(ox+18.0+tread*i2+tread/2,top/2,3.4); scene.add(st); }
-    // cheek walls flanking the flight (also stop side entry onto the raised steps)
-    for(const czz of[2.18,4.62]){ const cheek=box(3.5,1.5,.18,surf(TEX.concrete,3.5,1.5,1.2,0x8a8f96));
-      cheek.position.set(ox+19.75,.75,czz); scene.add(cheek); addCollider(ox+19.75,czz,3.5,.25); }
-    // sloped handrails atop the cheeks
-    for(const czz of[2.18,4.62]){ const hr=box(3.4,.06,.06,M.metalDark);
-      hr.position.set(ox+19.7,1.62,czz); hr.rotation.z=-.33; scene.add(hr);
-      for(const hx of[-1.3,0,1.3]){ const hp=box(.05,.5,.05,M.metalDark);
-        hp.position.set(ox+19.7+hx,1.15-hx*.34+.25,czz); scene.add(hp); } }
-    const post=box(.1,1.1,.1,M.metalDark); post.position.set(ox+21.4,1.55,4.3); scene.add(post);
-    // light over the flight so it reads from the platform
-    { const bfix=box(.16,.12,.16,M.metalDark); bfix.position.set(ox+19.6,3.05,3.4); scene.add(bfix);
-      const bl=new THREE.PointLight(0xc8b070,.85,7,1.6); bl.position.set(ox+19.6,2.9,3.4); scene.add(bl); }
-    // painted nosings on each step
-    for(let i2=0;i2<stepCount;i2++){ const nose=box(.035,.018,1.84,new THREE.MeshLambertMaterial({color:0xb5b18f}));
-      nose.position.set(ox+18.0+(i2+1)*tread,.125*(i2+1)+.01,3.4); scene.add(nose); }
-    const exitLanding=box(.9,.08,1.9,surf(TEX.tile,.9,1.9,.65,0x7c817b)); exitLanding.position.set(ox+21.55,1.02,3.4); scene.add(exitLanding);
-    const exitTrigger=box(1.8,3.0,1.9,new THREE.MeshBasicMaterial({visible:false,side:THREE.DoubleSide})); exitTrigger.position.set(ox+21.55,1.8,3.4); scene.add(exitTrigger);
+  // Exit is a flat station doorway now; there is no staircase in this level.
+  { const header=box(.16,.18,2.5,M.metalDark); header.position.set(ox+22.25,2.72,3.4); scene.add(header);
+    for(const zExit of[2.25,4.55]){ const post=box(.16,2.55,.16,M.metalDark); post.position.set(ox+22.25,1.35,zExit); scene.add(post); }
+    const threshold=box(.34,.08,2.2,new THREE.MeshLambertMaterial({color:0xb5b18f})); threshold.position.set(ox+21.95,.04,3.4); scene.add(threshold);
+    const exitTrigger=box(1.4,2.2,1.5,new THREE.MeshBasicMaterial({visible:false,side:THREE.DoubleSide})); exitTrigger.position.set(ox+21.7,1.1,3.4); scene.add(exitTrigger);
     interact(exitTrigger,"Up to the street",()=>{
       if(travelLock)return;
-      say(null,"Up the tiled stairs, past the dead ticket window, into the rain.",4200);
+      say(null,"Through the station exit and into the rain.",4200);
       AU.trainDepart(); AU.stationStop();
       setTimeout(()=>{ AU.windStart();
         travel("street",-96,26.5,0,()=>{
@@ -1433,9 +1426,7 @@ inZone("arrival",()=>{
   // The carriage floor is also a real walkable surface when the player enters it.
   ZONES.arrival.ground=(x,z)=>{
     if(z>=6.05&&z<=6.92&&x>=ox+1.0&&x<=ox+21.0)return .58;
-    if(z<2.35||z>4.45)return 0;
-    const t=Math.max(0,Math.min(7,Math.floor((x-(ox+18))/(.4))));
-    return x<ox+18?0:(t+1)*.125;
+    return 0;
   };
 });
 
