@@ -975,8 +975,22 @@ addEventListener("keydown",e=>{ keys[e.code]=true;
 addEventListener("keyup",e=>keys[e.code]=false);
 let locked=false;
 document.addEventListener("pointerlockchange",()=>{ locked=document.pointerLockElement===$("c"); });
-function relock(){ if(running&&!uiOpen)$("c").requestPointerLock?.(); }
-$("c").addEventListener("click",()=>{ if(running&&!uiOpen&&!locked)$("c").requestPointerLock(); });
+let relockTimer=0;
+function requestGameLock(){
+  if(!running||uiOpen||locked||document.pointerLockElement)return;
+  try{
+    const result=$("c").requestPointerLock?.();
+    result?.catch?.(()=>{});
+  }catch(e){}
+}
+function relock(){
+  clearTimeout(relockTimer);
+  if(!running||uiOpen)return;
+  // Pointer-lock exit is asynchronous; requesting in the same task throws
+  // in Chromium. Deferring also lets the canvas click path recover gracefully.
+  relockTimer=setTimeout(requestGameLock,80);
+}
+$("c").addEventListener("click",requestGameLock);
 addEventListener("mousemove",e=>{ if(!locked||uiOpen)return;
   player.yaw-=e.movementX*.0022; player.pitch-=e.movementY*.0022;
   player.pitch=Math.max(-1.45,Math.min(1.45,player.pitch)); });
@@ -1351,9 +1365,11 @@ inZone("arrival",()=>{
       g.fillText("MERIDIAN LINE",s/2,s/2-6); g.font="18px Courier New"; g.fillStyle="#9aa6b0"; g.fillText("HALDANE · WESTBOUND",s/2,s/2+26); },256);
     const sign=new THREE.Mesh(new THREE.PlaneGeometry(2.6,.65),new THREE.MeshBasicMaterial({map:sg})); sign.position.set(ox+8,2.3,1.3); scene.add(sign); }
   // WAY OUT sign fixed to the east wall above the doorway
-  { const wg=tex((g,s)=>{ g.fillStyle="#10140c";g.fillRect(0,0,s,s); g.fillStyle="#d8c060";g.font="bold 40px Courier New";g.textAlign="center";
-      g.fillText("WAY OUT",s/2,s/2-2); g.font="30px Courier New"; g.fillText("\u2191",s/2,s/2+40); },256);
-    const ws=new THREE.Mesh(new THREE.PlaneGeometry(1.5,.38),new THREE.MeshBasicMaterial({map:wg,side:THREE.DoubleSide})); ws.position.set(ox+22.30,3.0,3.4); ws.rotation.y=-Math.PI/2; scene.add(ws);
+  { const signBack=box(.05,.38,1.5,new THREE.MeshBasicMaterial({color:0x10140c}));
+    signBack.position.set(ox+22.29,2.92,3.4); scene.add(signBack);
+    const wg=tex((g,s)=>{ g.clearRect(0,0,s,s); g.fillStyle="#d8c060";g.font="bold 34px Courier New";g.textAlign="center";
+      g.fillText("WAY OUT",s/2,s*.48); g.font="26px Courier New"; g.fillText("\u2191",s/2,s*.84); },256);
+    const ws=new THREE.Mesh(new THREE.PlaneGeometry(1.42,.34),new THREE.MeshBasicMaterial({map:wg,transparent:true,side:THREE.DoubleSide,depthWrite:false})); ws.position.set(ox+22.25,2.92,3.4); ws.rotation.y=-Math.PI/2; scene.add(ws);
     const gl=new THREE.PointLight(0xd8c060,.42,4,1.8); gl.position.set(ox+21.9,2.45,3.4); scene.add(gl); }
   // a couple of platform benches + a bin (lived-in)
   for(const bx of[ox+5,ox+15]){ const seat=box(1.4,.05,.4,M.woodDark); seat.position.set(bx,.5,1.7); scene.add(seat);
@@ -2861,7 +2877,7 @@ function enterPlayMode(){
   AU.init(); $("title").style.opacity=0; setTimeout(()=>$("title").style.display="none",1400);
   running=true; startTime=performance.now();
   setTimeout(()=>{ $("fader").style.opacity=0; },300);
-  $("c").requestPointerLock?.();
+  requestGameLock();
 }
 
 async function doSave(slot){
