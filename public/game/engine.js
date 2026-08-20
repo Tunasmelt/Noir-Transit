@@ -1353,7 +1353,7 @@ inZone("arrival",()=>{
   // WAY OUT sign fixed to the east wall above the doorway
   { const wg=tex((g,s)=>{ g.fillStyle="#10140c";g.fillRect(0,0,s,s); g.fillStyle="#d8c060";g.font="bold 40px Courier New";g.textAlign="center";
       g.fillText("WAY OUT",s/2,s/2-2); g.font="30px Courier New"; g.fillText("\u2191",s/2,s/2+40); },256);
-    const ws=new THREE.Mesh(new THREE.PlaneGeometry(1.5,.5),new THREE.MeshBasicMaterial({map:wg,side:THREE.DoubleSide})); ws.position.set(ox+22.22,2.82,3.4); ws.rotation.y=-Math.PI/2; scene.add(ws);
+    const ws=new THREE.Mesh(new THREE.PlaneGeometry(1.5,.38),new THREE.MeshBasicMaterial({map:wg,side:THREE.DoubleSide})); ws.position.set(ox+22.30,3.0,3.4); ws.rotation.y=-Math.PI/2; scene.add(ws);
     const gl=new THREE.PointLight(0xd8c060,.42,4,1.8); gl.position.set(ox+21.9,2.45,3.4); scene.add(gl); }
   // a couple of platform benches + a bin (lived-in)
   for(const bx of[ox+5,ox+15]){ const seat=box(1.4,.05,.4,M.woodDark); seat.position.set(bx,.5,1.7); scene.add(seat);
@@ -1407,9 +1407,7 @@ inZone("arrival",()=>{
   ixTrainLeave.enabled=false;
 
   // Exit is a flat station doorway now; there is no staircase in this level.
-  { const header=box(.16,.18,2.5,M.metalDark); header.position.set(ox+22.25,2.72,3.4); scene.add(header);
-    for(const zExit of[2.25,4.55]){ const post=box(.16,2.55,.16,M.metalDark); post.position.set(ox+22.25,1.35,zExit); scene.add(post); }
-    const threshold=box(.34,.08,2.2,new THREE.MeshLambertMaterial({color:0xb5b18f})); threshold.position.set(ox+21.95,.04,3.4); scene.add(threshold);
+  { const threshold=box(.34,.08,2.2,new THREE.MeshLambertMaterial({color:0xb5b18f})); threshold.position.set(ox+21.95,.04,3.4); scene.add(threshold);
     const exitTrigger=box(1.4,2.2,1.5,new THREE.MeshBasicMaterial({visible:false,side:THREE.DoubleSide})); exitTrigger.position.set(ox+21.7,1.1,3.4); scene.add(exitTrigger);
     interact(exitTrigger,"Up to the street",()=>{
       if(travelLock)return;
