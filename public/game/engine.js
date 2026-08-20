@@ -1364,15 +1364,15 @@ inZone("arrival",()=>{
   { const sg=tex((g,s)=>{ g.fillStyle="#0c1a2c";g.fillRect(0,0,s,s); g.fillStyle="#7fb0e0";g.font="bold 30px Courier New";g.textAlign="center";
       g.fillText("MERIDIAN LINE",s/2,s/2-6); g.font="18px Courier New"; g.fillStyle="#9aa6b0"; g.fillText("HALDANE · WESTBOUND",s/2,s/2+26); },256);
     const sign=new THREE.Mesh(new THREE.PlaneGeometry(2.6,.65),new THREE.MeshBasicMaterial({map:sg})); sign.position.set(ox+8,2.3,1.3); scene.add(sign); }
-  // WAY OUT sign fixed to the east wall above the doorway
-  { const signBack=box(.025,.3,1.22,new THREE.MeshBasicMaterial({color:0x172018}));
-    signBack.position.set(ox+22.31,2.76,3.4); scene.add(signBack);
-    const wg=tex((g,s)=>{ g.clearRect(0,0,s,s); g.fillStyle="#d8c060";g.font="bold 30px Courier New";g.textAlign="center";
-      g.fillText("WAY OUT",s/2,s*.46);
-      g.beginPath(); g.moveTo(s/2,s*.58); g.lineTo(s*.44,s*.84); g.lineTo(s*.56,s*.84); g.closePath(); g.fill();
-    },256);
-    const ws=new THREE.Mesh(new THREE.PlaneGeometry(1.18,.27),new THREE.MeshBasicMaterial({map:wg,transparent:true,side:THREE.DoubleSide,depthWrite:false})); ws.position.set(ox+22.292,2.76,3.4); ws.rotation.y=-Math.PI/2; scene.add(ws);
-    const gl=new THREE.PointLight(0xd8c060,.42,4,1.8); gl.position.set(ox+21.9,2.45,3.4); scene.add(gl); }
+  // A small enamel wayfinding plate sits flush on the lintel.  Keeping it on
+  // the wall plane, rather than on a deep sign box, prevents the old floating
+  // black slab silhouette when viewed from the platform.
+  { const wg=tex((g,s)=>{ g.fillStyle="#173629"; g.fillRect(0,0,s,s); g.strokeStyle="#d9cd86"; g.lineWidth=8; g.strokeRect(10,10,s-20,s-20);
+      g.fillStyle="#f1df83";g.font="bold 31px Courier New";g.textAlign="center"; g.fillText("WAY OUT",s/2,s*.44);
+      g.beginPath(); g.moveTo(s*.50,s*.57); g.lineTo(s*.38,s*.79); g.lineTo(s*.47,s*.79); g.lineTo(s*.47,s*.91); g.lineTo(s*.53,s*.91); g.lineTo(s*.53,s*.79); g.lineTo(s*.62,s*.79); g.closePath(); g.fill(); },256);
+    const ws=new THREE.Mesh(new THREE.PlaneGeometry(1.28,.36),new THREE.MeshBasicMaterial({map:wg,side:THREE.DoubleSide}));
+    ws.position.set(ox+22.292,2.71,3.4); ws.rotation.y=-Math.PI/2; scene.add(ws);
+    const gl=new THREE.PointLight(0xd8c060,.3,3.2,1.8); gl.position.set(ox+21.92,2.5,3.4); scene.add(gl); }
   // a couple of platform benches + a bin (lived-in)
   for(const bx of[ox+5,ox+15]){ const seat=box(1.4,.05,.4,M.woodDark); seat.position.set(bx,.5,1.7); scene.add(seat);
     for(const lx of[-.6,.6]){ const leg=box(.06,.5,.34,M.metalDark); leg.position.set(bx+lx,.25,1.7); scene.add(leg);} }
@@ -1393,7 +1393,13 @@ inZone("arrival",()=>{
   const stripe=box(22,.18,.06,new THREE.MeshLambertMaterial({color:0x2a4a7a})); stripe.position.set(0,1.05,-.87); arrTrain.add(stripe);
   // lit windows
   const winM=new THREE.MeshBasicMaterial({color:0x223038});
-  for(let i=-9;i<=9;i++){ const w=box(.7,.6,.025,winM); w.position.set(i*1.05,1.7,-.87); arrTrain.add(w); }
+  const doorXs=[-7,0,7];
+  for(let i=-9;i<=9;i++){
+    const wx=i*1.05;
+    if(doorXs.some(dx=>Math.abs(wx-dx)<1.05))continue;
+    const w=box(.7,.6,.025,winM); w.position.set(wx,1.7,-.87); arrTrain.add(w);
+    const sill=box(.76,.035,.035,M.metalDark); sill.position.set(wx,1.34,-.9); arrTrain.add(sill);
+  }
   const cabFloor=box(22,.08,1.45,surf(TEX.metroFloor,22,1.45,1.1)); cabFloor.position.set(0,.58,.02); arrTrain.add(cabFloor);
   const cabCeil=box(22,.08,1.42,surf(TEX.metroMetal,22,1.42,2.2,0x4b555a)); cabCeil.position.set(0,2.48,.02); arrTrain.add(cabCeil);
   const cabWall=box(21.7,1.65,.08,surf(TEX.metroMetal,21.7,1.65,2.0,0x4e585d)); cabWall.position.set(0,1.48,.72); arrTrain.add(cabWall);
@@ -1454,6 +1460,25 @@ inZone("street",()=>{
     const sw2=sw.clone(); sw2.position.x=ox+7.1; scene.add(sw2); }
   wall("z",-1.6,29.6,ox-1.6,9,0,TEX.brickExt,.5,.2); wall("z",-1.6,29.6,ox+9.6,9,0,TEX.brickExt,.5,.2);
   wall("x",ox-1.6,ox+9.6,-1.6,9,0,TEX.brickExt,.5,.2);
+  // Wet curb bands, drains, and shallow puddles give the narrow street a
+  // continuous edge instead of leaving the asphalt floating between walls.
+  for(const sx of[ox+.82,ox+7.18]){
+    const curb=box(2.2,.12,.18,new THREE.MeshLambertMaterial({color:0x4b4d4a})); curb.position.set(sx,.06,14); scene.add(curb);
+    for(const pz of[5.4,11.8,18.2,24.8]){
+      const drain=box(1.3,.018,.22,new THREE.MeshBasicMaterial({color:0x151a1c})); drain.position.set(sx,.014,pz); scene.add(drain);
+    }
+  }
+  for(const [px,pz,pw,pd] of[[ox+2.1,9.4,2.2,.55],[ox+6.3,18.6,1.7,.42],[ox+3.4,24.2,2.8,.5]]){
+    const puddle=new THREE.Mesh(new THREE.PlaneGeometry(pw,pd),new THREE.MeshLambertMaterial({color:0x202b32,transparent:true,opacity:.68}));
+    puddle.rotation.x=-Math.PI/2; puddle.rotation.z=(px+pz)%2*.18; puddle.position.set(px,.012,pz); scene.add(puddle);
+  }
+  // Small pools of warm light against the facade create readable noir
+  // landmarks inside the dark street shell.
+  for(const [lx,ly,lz] of[[ox+1.2,3.0,-1.35],[ox+7.8,3.6,-1.35]]){
+    const wallLamp=new THREE.Mesh(new THREE.SphereGeometry(.06,7,5),new THREE.MeshBasicMaterial({color:0xd5ae72}));
+    wallLamp.position.set(lx,ly,lz); scene.add(wallLamp);
+    const wl=new THREE.PointLight(0xc89558,.3,5,1.8); wl.position.set(lx,ly,lz+.2); scene.add(wl);
+  }
   // ── street furniture: a car nobody moved, a phone box, a hydrant, the litter of a wet year ──
   { const car=mkSedan(); at(car,ox+4.8,0,12,Math.PI/2+.06); addCollider(ox+4.8,12,2.0,4.4);
     interact(car,"A parked sedan",()=>say(null,"Rain has been washing this car for a long time. The tax disc expired in a different life."));
@@ -1474,42 +1499,47 @@ inZone("street",()=>{
     for(const [bx,bz] of[[ox+1.2,13.5],[ox+6.9,21.5]]){
       const bag=new THREE.Mesh(new THREE.SphereGeometry(.28,7,5),new THREE.MeshLambertMaterial({color:0x14161a}));
       bag.scale.y=.7; bag.position.set(bx,.19,bz); scene.add(bag); addCollider(bx,bz,.5,.5); } }
-  // ── HALDANE COURT: full facade, raised porch, climbable front steps ──
+  // ── HALDANE COURT: restrained noir facade, readable entrance, wet street landmarks ──
   { const conc=new THREE.MeshLambertMaterial({map:TEX.concrete});
     // window grid on the building face (lit and dark flats)
     const litW=new THREE.MeshBasicMaterial({color:0x4a4230}), drkW=new THREE.MeshBasicMaterial({color:0x0c0e12});
     for(let r=0;r<5;r++)for(let c=0;c<5;c++){ const lit=(r*5+c)%7===3||(r===2&&c===4);
       const w=new THREE.Mesh(new THREE.PlaneGeometry(.8,1.1),lit?litW:drkW);
       w.position.set(ox+.8+c*1.6,3.4+r*1.15,-1.47); scene.add(w);
-      const sill=box(.9,.06,.1,conc); sill.position.set(ox+.8+c*1.6,2.8+r*1.15,-1.5); scene.add(sill); }
-    // entrance bay: brick piers + canopy
-    for(const px of[ox+2.55,ox+5.45]){ const pier=box(.5,3.4,2.1,surf(TEX.brickExt,.5,3.4,.5,0xffffff)); pier.position.set(px,1.7,-.55); scene.add(pier);
-      addCollider(px,-.55,.5,2.1); }
-    { const canopy=box(3.4,.22,2.3,M.woodDark); canopy.position.set(ox+4,3.45,-.5); scene.add(canopy); }
-    // raised porch (top at y=1.0)
-    const porch=box(3.2,1.0,1.7,conc); porch.position.set(ox+4,.5,.35); scene.add(porch);
-    // five concrete steps down to the pavement (z 1.2 → 3.0)
-    for(let i=0;i<5;i++){ const st=box(2.4,.2,.42,conc); st.position.set(ox+4,1.0-.2*i-.1,1.2+.18+i*.36+ .03); scene.add(st); }
-    // Keep the entrance open and readable; the old rails and balustrades
-    // floated above the step profile and created false collision obstacles.
-    // low light over the steps so the flight reads from the pavement
-    { const pl2=new THREE.PointLight(0xc8a870,.5,6,1.7); pl2.position.set(ox+4,2.2,2.2); scene.add(pl2); }
-    // door on the porch (raised to porch height)
-    const bd=mkDoor(plateTex("——")); bd.position.set(ox+3.55,1.0+.18,-.21); scene.add(bd);
-    doorTrim(ox+4,1.18,-.19);
-    addCollider(ox+4,-.28,2.6,.5,"bldgDoor");
+      const sill=box(.9,.06,.1,conc); sill.position.set(ox+.8+c*1.6,2.8+r*1.15,-1.5); scene.add(sill);
+      if(lit){ const spill=new THREE.PointLight(0xb68d58,.08,3.5,2); spill.position.set(ox+.8+c*1.6,3.4+r*1.15,-.9); scene.add(spill); } }
+    // The old entrance had a tall stack of narrow treads, thick side walls,
+    // and a door that was visually disconnected from its landing.  Rebuild it
+    // as a low two-step stoop: a common, readable street-level apartment entry.
+    for(const px of[ox+2.48,ox+5.52]){ const pier=box(.28,3.05,.82,surf(TEX.brickExt,.28,3.05,.5,0xffffff)); pier.position.set(px,1.525,-1.02); scene.add(pier);
+      addCollider(px,-1.02,.36,.95); }
+    const porch=box(3.18,.44,1.15,conc); porch.position.set(ox+4,.22,.08); scene.add(porch);
+    for(const [top,pz] of[[.28,.82],[.14,1.18]]){ const st=box(2.74,top,.36,conc); st.position.set(ox+4,top/2,pz); scene.add(st);
+      const nose=box(2.72,.025,.045,new THREE.MeshLambertMaterial({color:0x777468})); nose.position.set(ox+4,top+.014,pz+.17); scene.add(nose); }
+    // One short rail per side is enough to frame the stoop without creating a
+    // second, colliding staircase silhouette.
+    for(const sx of[ox+2.72,ox+5.28]){
+      for(const rz of[.72,1.32]){ const post=box(.05,.58,.05,M.metalDark); post.position.set(sx,.57,rz); scene.add(post); }
+      const rail=box(.05,.05,.72,M.metalDark); rail.position.set(sx,.9,1.02); rail.rotation.x=-.38; scene.add(rail); }
+    { const canopy=box(3.1,.16,.78,M.woodDark); canopy.position.set(ox+4,2.86,-.72); scene.add(canopy);
+      const canopyLip=box(3.16,.08,.06,new THREE.MeshLambertMaterial({color:0x4d3d2c})); canopyLip.position.set(ox+4,2.75,-.31); scene.add(canopyLip); }
+    { const pl2=new THREE.PointLight(0xc8a870,.48,5,1.7); pl2.position.set(ox+4,2.2,.38); scene.add(pl2); }
+    // Door, trim, landing and collision now share the same .44m threshold.
+    const bd=mkDoor(plateTex("——")); bd.position.set(ox+3.55,.44,-.21); scene.add(bd);
+    doorTrim(ox+4,.44,-.19);
+    addCollider(ox+4,-.28,1.3,.45,"bldgDoor");
     // sign + entry lamp over the door
     const sign=new THREE.Mesh(new THREE.PlaneGeometry(1.7,.3),new THREE.MeshBasicMaterial({map:tex((g,s)=>{ g.fillStyle="#14100c";g.fillRect(0,0,s,s);
       g.fillStyle="#b89a5a"; g.font="bold 40px Courier New"; g.textAlign="center"; g.fillText("HALDANE COURT",s/2,s/2+13); },256)}));
-    sign.position.set(ox+4,3.05,-1.62); scene.add(sign);
-    { const lampG=new THREE.Mesh(new THREE.SphereGeometry(.09,8,8),new THREE.MeshBasicMaterial({color:0xd8b070})); lampG.position.set(ox+4,2.75,-.3); scene.add(lampG);
-      const pl=new THREE.PointLight(0xd8a860,.9,7,1.7); pl.position.set(ox+4,2.7,0); scene.add(pl); }
+    sign.position.set(ox+4,2.56,-1.48); scene.add(sign);
+    { const lampG=new THREE.Mesh(new THREE.SphereGeometry(.09,8,8),new THREE.MeshBasicMaterial({color:0xd8b070})); lampG.position.set(ox+4,2.28,-.3); scene.add(lampG);
+      const pl=new THREE.PointLight(0xd8a860,.8,6,1.7); pl.position.set(ox+4,2.28,0); scene.add(pl); }
     interact(bd,"Home",()=>{
       if(GS.metroOpen){ say("THOMAS","No. Not back inside. The station."); return; }
       if(travelLock)return; enterBuilding(); },{range:3.0});
-    // stair/porch ground profile: front steps rise z 3.0→1.2 to the porch (1.0); subway landing steps to .4
+    // Exact discrete ground profile for the two visible stoop treads.
     ZONES.street.ground=(x,z)=>{
-      if(Math.abs(x-(ox+4))<1.55){ if(z<=1.25)return 1.0; if(z<3.05)return Math.max(0,Math.min(1,(3.05-z)/1.8)); }
+      if(Math.abs(x-(ox+4))<1.55){ if(z<=.65)return .44; if(z<1.0)return .28; if(z<1.36)return .14; }
       if(Math.abs(x-(ox+4))<.85){ if(z>=27.6&&z<=28.6)return .4; if(z>26.95&&z<27.6)return (z-26.95)/.65*.4; }
       return 0; };
   }
@@ -1567,7 +1597,12 @@ inZone("dream1",()=>{
   wall("x",ox-1.6,ox+1.6,.4,3.4,0,TEX.dreamWall,.9,.14);
   for(let i=-1;i<=1;i++){
     const ax=ox+i*1.02;
-    const fr=box(.86,2.5,.1,new THREE.MeshLambertMaterial({color:0x6a6c70})); fr.position.set(ax,1.25,.52); scene.add(fr);
+    // Frame each dream pane as an opening.  The prior solid backing made the
+    // panes read as floating slabs rather than recessed cells in the corridor.
+    const frameM=new THREE.MeshLambertMaterial({color:0x6a6c70});
+    for(const dx of[-.39,.39]){ const jamb=box(.08,2.42,.1,frameM); jamb.position.set(ax+dx,1.25,.52); scene.add(jamb); }
+    const lintel=box(.86,.1,.1,frameM); lintel.position.set(ax,2.43,.52); scene.add(lintel);
+    const sill=box(.86,.08,.14,frameM); sill.position.set(ax,.08,.52); scene.add(sill);
     const gm=new THREE.MeshLambertMaterial({color:0x2a5a58,transparent:true,opacity:.75,emissive:0x0a2422});
     const glass=new THREE.Mesh(new THREE.PlaneGeometry(.7,2.3),gm); glass.position.set(ax,1.25,.59); scene.add(glass);
     archGlass.push(gm);
@@ -1665,21 +1700,20 @@ inZone("lobbyG",()=>{
     const ledger=box(.34,.03,.26,M.paper); ledger.position.set(ox+9.62,1.0,3.5); ledger.rotation.y=.2; scene.add(ledger);
     interact(ledger,"The visitors' ledger",()=>say(null,"Open to last October. The pen has rolled into the gutter of the page and stayed there."));
     const gl=new THREE.PointLight(0xc8a060,.4,4.2,1.8); gl.position.set(ox+9.3,1.5,3); scene.add(gl); }
-  // the main staircase — closed since long before tonight (elevator is the only way up)
-  { const conc=new THREE.MeshLambertMaterial({map:TEX.concrete});
-    for(let i=0;i<5;i++){ const top=.18*(i+1);
-      const st=box(.56,top,1.0,conc); st.position.set(ox+6.9+i*.56,top/2,5.48); scene.add(st); }
-    const cheek=box(2.9,1.05,.12,conc); cheek.position.set(ox+8.02,.52,4.95); scene.add(cheek);
-    const dark=new THREE.Mesh(new THREE.PlaneGeometry(1.1,2.0),new THREE.MeshBasicMaterial({color:0x030405})); dark.position.set(ox+9.62,1.95,5.92); scene.add(dark);
-    const ply=box(1.7,1.15,.05,new THREE.MeshLambertMaterial({color:0x5e4e3c})); ply.position.set(ox+7.5,.95,5.15); ply.rotation.z=.12; ply.rotation.y=-.08; scene.add(ply);
-    { const grain=box(1.7,.03,.055,new THREE.MeshLambertMaterial({color:0x4c3e2f}));
-      for(const gy of[-.32,.02,.36]){ const g2=grain.clone(); g2.position.y=gy; ply.add(g2); } }
-    const cs=new THREE.Mesh(new THREE.PlaneGeometry(.9,.42),new THREE.MeshLambertMaterial({transparent:true,
-      map:tex((g,s)=>{ g.fillStyle="#9a8f74"; g.fillRect(0,0,s,s); g.strokeStyle="#4a4234"; g.lineWidth=6; g.strokeRect(6,6,s-12,s-12);
-        g.fillStyle="#6e241e"; g.font="bold 30px Courier New"; g.textAlign="center"; g.fillText("STAIRS CLOSED",s/2,s/2-8);
-        g.fillStyle="#2e2a22"; g.font="bold 22px Courier New"; g.fillText("— USE LIFT —",s/2,s/2+26); grime(g,s,10,.4); },256)}));
-    cs.position.set(0,.06,-.032); cs.rotation.y=Math.PI; ply.add(cs);   // mounted flat on the sheet
-    addCollider(ox+8.1,5.4,3.4,1.3);
+  // The former staircase was a loose run of treads crossing the lobby.  It is
+  // now a deliberately sealed stairwell at the north wall: readable, grounded,
+  // and clearly separate from the alley door beside it.
+  { const frameM=new THREE.MeshLambertMaterial({color:0x39352e});
+    const voidM=new THREE.MeshBasicMaterial({color:0x050608});
+    const opening=box(2.15,2.18,.08,voidM); opening.position.set(ox+8.15,1.09,5.79); scene.add(opening);
+    for(const px of[ox+7.05,ox+9.25]){ const jamb=box(.16,2.3,.13,frameM); jamb.position.set(px,1.15,5.7); scene.add(jamb); }
+    const lintel=box(2.36,.16,.13,frameM); lintel.position.set(ox+8.15,2.22,5.7); scene.add(lintel);
+    const ply=box(1.92,1.28,.07,new THREE.MeshLambertMaterial({color:0x5e4e3c})); ply.position.set(ox+8.15,.95,5.66); scene.add(ply);
+    for(const py of[.52,.95,1.38]){ const brace=box(1.82,.06,.09,new THREE.MeshLambertMaterial({color:0x453a2d})); brace.position.set(ox+8.15,py,5.6); scene.add(brace); }
+    const cs=new THREE.Mesh(new THREE.PlaneGeometry(1.2,.48),new THREE.MeshLambertMaterial({map:tex((g,s)=>{ g.fillStyle="#9a8f74"; g.fillRect(0,0,s,s); g.strokeStyle="#4a4234"; g.lineWidth=6; g.strokeRect(6,6,s-12,s-12);
+      g.fillStyle="#6e241e"; g.font="bold 30px Courier New"; g.textAlign="center"; g.fillText("STAIRS CLOSED",s/2,s/2-8); g.fillStyle="#2e2a22"; g.font="bold 22px Courier New"; g.fillText("— USE LIFT —",s/2,s/2+26); grime(g,s,10,.4); },256)}));
+    cs.position.set(ox+8.15,1.04,5.61); cs.rotation.y=Math.PI; scene.add(cs);
+    addCollider(ox+8.15,5.48,2.4,.55);
     interact(ply,"The stairwell, boarded over",()=>say(null,"Closed for repairs in a year that never came. The lift is the only way this building goes up."));}
   // bulletin board with the building map, by the front doors
   { const bb=box(1.35,.95,.05,M.woodDark); bb.position.set(ox+2.2,1.55,.14); scene.add(bb);
@@ -1976,9 +2010,14 @@ inZone("dream2",()=>{
   wall("x",ox-1.6,ox+1.6,46,2.6,0,TEX.wallpaperOld,.75,.14);
   wall("x",ox-1.6,ox+1.6,.4,2.6,0,TEX.wallpaperOld,.75,.14);
   for(let z=4;z<44;z+=6){ const sc=mkSconce(Math.random()<.4); sc.position.set(ox-1.52,1.7,z); scene.add(sc); }
+  // A real framed void, not two coincident planes that fight for the same
+  // pixels.  The dark opening remains readable from the full corridor.
   voidDoor=new THREE.Mesh(new THREE.PlaneGeometry(1.1,2.2),new THREE.MeshBasicMaterial({color:0x000000}));
   voidDoor.position.set(ox,1.1,.62); scene.add(voidDoor);
-  const rim=new THREE.Mesh(new THREE.PlaneGeometry(1.2,2.3),new THREE.MeshBasicMaterial({color:0x28303c})); rim.position.set(ox,1.1,.6); scene.add(rim);
+  const rimM=new THREE.MeshLambertMaterial({color:0x28303c});
+  for(const rx of[-.62,.62]){ const jamb=box(.12,2.36,.08,rimM); jamb.position.set(ox+rx,1.18,.59); scene.add(jamb); }
+  const top=box(1.36,.12,.08,rimM); top.position.set(ox,2.3,.59); scene.add(top);
+  const sill=box(1.36,.08,.14,rimM); sill.position.set(ox,.04,.59); scene.add(sill);
 });
 function endChase(){
   GS.chase=false; figure.visible=false; AU.sting();
@@ -2041,9 +2080,9 @@ inZone("floor21",()=>{
     // caged bulb over the landing so the flight and door read
     const bfix=box(.16,.12,.16,M.metalDark); bfix.position.set(ox+16,2.6,5.3); scene.add(bfix);
     const bl=new THREE.PointLight(0xc89050,1.15,7.5,1.5); bl.position.set(ox+16,2.4,4.9); scene.add(bl); }
-  // climbable: ground rises through the flight, landing sits at .6
+  // Movement uses the same four discrete levels as the visible treads.
   ZONES.floor21.ground=(x,z)=>{ if(x<ox+14.2||x>ox+17.8||z<2.3)return 0;
-    if(z>=4.5)return .6; if(z<=3.35)return 0; return (z-3.35)/1.15*.6; };
+    if(z>=4.5)return .6; if(z>=4.2)return .45; if(z>=3.9)return .3; if(z>=3.6)return .15; return 0; };
   // terrace door + the photograph — seated ON the landing
   const td=mkDoor(plateTex("ROOF")); td.position.set(ox+15.55,.6,5.9); scene.add(td);
   { const conc2=new THREE.MeshLambertMaterial({map:TEX.concrete});
@@ -2120,7 +2159,7 @@ inZone("terrace",()=>{
         new THREE.MeshBasicMaterial({map:glowTex,transparent:true,side:THREE.BackSide,fog:false,depthWrite:false}));
       glow.position.set(cx,3,cz2); scene.add(glow); } }
   const td=mkDoor(plateTex("ROOF")); td.position.set(ox+.2,0,7.55); td.rotation.y=Math.PI/2; scene.add(td);
-  doorTrim(ox+.2,0,8.0,Math.PI/2,new THREE.MeshLambertMaterial({map:TEX.concrete}));
+  doorTrim(ox+.2,0,7.55,Math.PI/2,new THREE.MeshLambertMaterial({map:TEX.concrete}));
   addCollider(ox+.3,7,.4,1.4);
   interact(td,"Back inside",()=>travel("floor21",616,4.6,Math.PI,()=>{ AU.windStop(); AU.tenantsStart(); }));
   const no2=new THREE.Mesh(new THREE.PlaneGeometry(.2,.26),new THREE.MeshLambertMaterial({map:TEX.noteSmall}));
@@ -2137,16 +2176,16 @@ inZone("terrace",()=>{
   const tank=group(); { const body=new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.1,1.8,12,1,true),new THREE.MeshLambertMaterial({map:TEX.metal,side:THREE.DoubleSide})); body.position.y=2.1; tank.add(body);
     for(const [lx,lz] of[[-.8,-.8],[.8,-.8],[-.8,.8],[.8,.8]]){ const leg=box(.1,1.2,.1,M.metalDark); leg.position.set(lx,.6,lz); tank.add(leg);} }
   at(tank,ox+16.5,0,2.5,0); addCollider(ox+16.5,2.5,2.4,2.4);
-  { // maintenance steps + platform (west side): climb up to see over the rim
+  { // Tank access: three full-width treads and one low service deck.
     const galv=new THREE.MeshLambertMaterial({map:TEX.metal});
-    const plat=box(1.0,.08,1.2,galv); plat.position.set(ox+14.78,1.5,2.5); scene.add(plat);
-    for(const [sx,st] of[[ox+13.52,.5],[ox+13.97,1.0]]){ const s2=box(.45,st,1.2,galv); s2.position.set(sx,st/2,2.5); scene.add(s2); }
-    for(const lx of[ox+14.35,ox+15.22])for(const lz of[1.95,3.05]){ const leg=box(.07,1.5,.07,M.metalDark); leg.position.set(lx,.75,lz); scene.add(leg); }
-    for(const rz of[1.94,3.06]){ const rail=box(1.05,.05,.05,M.metalDark); rail.position.set(ox+14.78,2.35,rz); scene.add(rail);
-      for(const px2 of[ox+14.4,ox+15.18]){ const p2=box(.05,.85,.05,M.metalDark); p2.position.set(px2,1.95,rz); scene.add(p2); } }
-    addCollider(ox+14.78,1.32,1.3,.18); addCollider(ox+14.78,3.68,1.3,.18); // keep player on the treads
-    ZONES.terrace.ground=(x,z)=>{ if(z<1.95||z>3.05||x<ox+12.9||x>ox+15.3)return 0;
-      if(x>=ox+14.2)return 1.5; return Math.max(0,(x-(ox+12.9))/1.3)*1.5; }; }
+    for(const [sx,top] of[[ox+13.35,.22],[ox+13.78,.44],[ox+14.21,.66]]){
+      const tread=box(.44,top,1.2,galv); tread.position.set(sx,top/2,2.5); scene.add(tread); }
+    const plat=box(1.0,.8,1.25,galv); plat.position.set(ox+14.94,.4,2.5); scene.add(plat);
+    for(const rz of[1.88,3.12]){ const rail=box(1.08,.05,.05,M.metalDark); rail.position.set(ox+14.94,1.28,rz); scene.add(rail);
+      for(const px2 of[ox+14.5,ox+15.38]){ const post=box(.05,.68,.05,M.metalDark); post.position.set(px2,.96,rz); scene.add(post); } }
+    addCollider(ox+14.94,1.82,1.15,.16); addCollider(ox+14.94,3.18,1.15,.16);
+    ZONES.terrace.ground=(x,z)=>{ if(z<1.88||z>3.12||x<ox+13.12||x>ox+15.44)return 0;
+      if(x>=ox+14.5)return .8; if(x>=ox+14.0)return .66; if(x>=ox+13.57)return .44; return .22; }; }
   tankWater=new THREE.Mesh(new THREE.CylinderGeometry(1.02,1.02,.06,12),new THREE.MeshLambertMaterial({color:0x1a2c34}));
   tankWater.position.set(ox+16.5,1.35,2.5); scene.add(tankWater);
   const dotTex=n=>tex((g,s)=>{ g.clearRect(0,0,s,s); g.fillStyle="#d8c890"; for(let i=0;i<n;i++){ g.beginPath(); g.arc(s/2+(i-(n-1)/2)*34,s/2,13,0,7); g.fill(); } },128);
@@ -2477,8 +2516,19 @@ inZone("metro",()=>{
   for(const x of[ox+6,ox+14,ox+22]){ const f=mkMetroFluorescent(); f.position.set(x,3.08,3); scene.add(f); }
   trainGrp=new THREE.Group(); scene.add(trainGrp);
   const carMat=surf(TEX.metroMetal,8.6,2.6,2.0,0x535c63);
-  for(let c=0;c<3;c++){ const cx=c*9-9; const car=box(8.6,2.6,2.2,carMat); car.position.set(cx,1.3,0); trainGrp.add(car);
-    for(let w=0;w<5;w++){ const win=new THREE.Mesh(new THREE.PlaneGeometry(1.1,.7),new THREE.MeshLambertMaterial({color:0x35464d,emissive:0x10181c})); win.position.set(cx-3.2+w*1.6,1.7,-1.12); win.rotation.y=Math.PI; trainGrp.add(win); }
+  for(let c=0;c<3;c++){ const cx=c*9-9;
+    const car=new THREE.Group();
+    const roof=box(8.6,.26,2.2,carMat); roof.position.set(cx,2.44,0); car.add(roof);
+    const lower=box(8.6,.52,2.2,carMat); lower.position.set(cx,.34,0); car.add(lower);
+    const rear=box(8.6,1.65,.12,carMat); rear.position.set(cx,1.38,.99); car.add(rear);
+    const frontTop=box(8.6,.3,.12,carMat); frontTop.position.set(cx,2.1,-1.02); car.add(frontTop);
+    const frontBase=box(8.6,.34,.12,carMat); frontBase.position.set(cx,.82,-1.02); car.add(frontBase);
+    trainGrp.add(car);
+    for(let w=0;w<5;w++){ const wx=cx-3.2+w*1.6;
+      if(c===1&&Math.abs(wx)<1.05)continue;
+      const win=new THREE.Mesh(new THREE.PlaneGeometry(1.1,.7),new THREE.MeshLambertMaterial({color:0x35464d,emissive:0x10181c})); win.position.set(wx,1.7,-1.12); win.rotation.y=Math.PI; trainGrp.add(win);
+      const sill=box(1.12,.035,.035,M.metalDark); sill.position.set(wx,1.3,-1.14); trainGrp.add(sill);
+    }
     const floor=box(8.2,.08,1.8,surf(TEX.metroFloor,8.2,1.8,1.0)); floor.position.set(cx,.58,0); trainGrp.add(floor);
     const ceiling=box(8.2,.08,1.8,surf(TEX.metroMetal,8.2,1.8,1.6,0x40494e)); ceiling.position.set(cx,2.42,0); trainGrp.add(ceiling);
     const innerWall=box(8.1,1.65,.08,surf(TEX.metroMetal,8.1,1.65,1.8,0x4a555a)); innerWall.position.set(cx,1.48,.78); trainGrp.add(innerWall);
@@ -2486,7 +2536,12 @@ inZone("metro",()=>{
     const strip=box(6.6,.035,.12,new THREE.MeshBasicMaterial({color:0xb4bba2})); strip.position.set(cx,2.36,-.25); trainGrp.add(strip);
     const interiorLight=new THREE.PointLight(0xb7c9bd,.24,4.5,1.8); interiorLight.position.set(cx,1.85,-.15); trainGrp.add(interiorLight);
   }
+  // Visible middle-car boarding bay aligned with the gameplay trigger.
+  for(const xDoor of[-.58,.58]){ const jamb=box(.12,1.65,.1,M.metalDark); jamb.position.set(xDoor,1.35,-1.02); trainGrp.add(jamb); }
+  const doorHeader=box(1.3,.14,.1,M.metalDark); doorHeader.position.set(0,2.2,-1.02); trainGrp.add(doorHeader);
   trainGrp.position.set(ox+42,0,8); trainGrp.userData.arriving=false;
+  addCollider(ox+9,8,8,2.0,"metroTrain");
+  addCollider(ox+19,8,8,2.0,"metroTrain");
   boardDoor=new THREE.Mesh(new THREE.PlaneGeometry(1.2,2.2),new THREE.MeshBasicMaterial({color:0x181a20}));
   boardDoor.position.set(ox+14,1.2,6.85); boardDoor.rotation.y=Math.PI; boardDoor.visible=false; scene.add(boardDoor);
   const ixB=interact(boardDoor,"Board the train",()=>{
