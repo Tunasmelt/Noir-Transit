@@ -1490,25 +1490,18 @@ inZone("street",()=>{
     const porch=box(3.2,1.0,1.7,conc); porch.position.set(ox+4,.5,.35); scene.add(porch);
     // five concrete steps down to the pavement (z 1.2 → 3.0)
     for(let i=0;i<5;i++){ const st=box(2.4,.2,.42,conc); st.position.set(ox+4,1.0-.2*i-.1,1.2+.18+i*.36+ .03); scene.add(st); }
-    // stepped balustrade cheeks flanking the steps, slim rail on top
-    for(const sx of[ox+2.72,ox+5.28]){
-      const c1=box(.18,1.25,.95,conc); c1.position.set(sx,.62,1.62); scene.add(c1);
-      const c2=box(.18,.85,.85,conc); c2.position.set(sx,.42,2.5); scene.add(c2);
-      const newel=box(.26,1.05,.26,conc); newel.position.set(sx,.52,3.1); scene.add(newel);
-      const rail=box(.07,.07,2.0,M.metalDark); rail.position.set(sx,1.32,2.1); rail.rotation.x=-.44; scene.add(rail);
-      for(const [bz,bt,bb] of[[1.35,1.67,1.245],[1.95,1.39,1.245],[2.5,1.13,.845],[2.85,.97,.845]]){
-        const bal=box(.055,bt-bb,.055,M.metalDark); bal.position.set(sx,(bt+bb)/2,bz); scene.add(bal); }
-      addCollider(sx,2.1,.24,2.2); }
+    // Keep the entrance open and readable; the old rails and balustrades
+    // floated above the step profile and created false collision obstacles.
     // low light over the steps so the flight reads from the pavement
     { const pl2=new THREE.PointLight(0xc8a870,.5,6,1.7); pl2.position.set(ox+4,2.2,2.2); scene.add(pl2); }
     // door on the porch (raised to porch height)
-    const frame=box(1.3,2.3,.16,M.woodDark); frame.position.set(ox+4,1.0+1.15,-.28); scene.add(frame);
     const bd=mkDoor(plateTex("——")); bd.position.set(ox+3.55,1.0+.18,-.21); scene.add(bd);
     doorTrim(ox+4,1.18,-.19);
     addCollider(ox+4,-.28,2.6,.5,"bldgDoor");
     // sign + entry lamp over the door
-    const sign=new THREE.Mesh(new THREE.PlaneGeometry(1.7,.34),new THREE.MeshBasicMaterial({map:tex((g,s)=>{ g.fillStyle="#14100c";g.fillRect(0,0,s,s);
-      g.fillStyle="#b89a5a"; g.font="bold 44px Courier New"; g.textAlign="center"; g.fillText("HALDANE COURT",s/2,s/2+14); },256)})); sign.position.set(ox+4,3.45,.62); scene.add(sign);
+    const sign=new THREE.Mesh(new THREE.PlaneGeometry(1.7,.3),new THREE.MeshBasicMaterial({map:tex((g,s)=>{ g.fillStyle="#14100c";g.fillRect(0,0,s,s);
+      g.fillStyle="#b89a5a"; g.font="bold 40px Courier New"; g.textAlign="center"; g.fillText("HALDANE COURT",s/2,s/2+13); },256)}));
+    sign.position.set(ox+4,3.05,-1.62); scene.add(sign);
     { const lampG=new THREE.Mesh(new THREE.SphereGeometry(.09,8,8),new THREE.MeshBasicMaterial({color:0xd8b070})); lampG.position.set(ox+4,2.75,-.3); scene.add(lampG);
       const pl=new THREE.PointLight(0xd8a860,.9,7,1.7); pl.position.set(ox+4,2.7,0); scene.add(pl); }
     interact(bd,"Home",()=>{
