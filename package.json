@@ -1,6 +1,8 @@
 {
   "name": "noir-transit-next",
   "version": "0.1.0",
+  "description": "NOIR — Transit: a first-person psychological horror/mystery browser game built in Three.js, packaged as a static Next.js site.",
+  "license": "MIT",
   "private": true,
   "scripts": {
     "dev": "next dev",
