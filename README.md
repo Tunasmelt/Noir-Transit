@@ -15,6 +15,7 @@ The visual style is a deliberate throwback: a low-resolution render target, Baye
 ### Features
 
 - **11 connected zones** — an arrival station, the street, two dream-corridor interludes, the 8th floor (two flats), the ground-floor lobby, the back alley, a restock room, the 21st floor, the roof terrace, and the metro platform — linked by travel triggers, an elevator, and stairwells.
+- **Per-pixel lit, low-res rendering** — every fixture in the world (tubes, sconces, street lamps, the generator's pilot light) casts a real pool of light, quantised and dithered down to 240 lines.
 - **A fully procedural soundscape** — every ambient and story sound is synthesized, not sampled, with a per-zone weighted scheduler so each space has its own character.
 - **Puzzles that are part of the story**, not obstacles bolted on: three hidden pages unlock a phone number, a four-chime music box only plays in the order the couple remembers it, a rooftop water tank has to be filled before it can be reached, and a four-piece key has to be assembled to open a safe.
 - **Two distinct endings** reachable through different player choices — "THE DROP" on the terrace ledge, or "TRANSIT" on the metro platform.
@@ -31,8 +32,10 @@ The visual style is a deliberate throwback: a low-resolution render target, Baye
 |---|---|
 | ![Arrival station](docs/screenshots/arrival-station.png) | ![21st floor corridor](docs/screenshots/21st-floor-corridor.png) |
 | *The last train lets him out into a station the colour of an old bruise.* | *The 21st floor — numbered doors, and an umbrella left on a bench.* |
-| ![Roof terrace](docs/screenshots/roof-terrace.png) | ![Landing page](docs/screenshots/landing.png) |
-| *The terrace, cleared of rain, as if someone kept it swept.* | *The case-file landing page.* |
+| ![Roof terrace](docs/screenshots/roof-terrace.png) | ![Street](docs/screenshots/street.png) |
+| *The terrace: a bench facing the city, and the string lights she hung.* | *Haldane Court's street, in the rain.* |
+
+The in-game screenshots above are unretouched frames with the flashlight off and the HUD hidden.
 
 ## Why it's structured this way
 
@@ -91,6 +94,8 @@ NEXT_PUBLIC_BASE_PATH=/Noir-Transit npm run build
 - `reactStrictMode` is disabled in `next.config.mjs`. The game engine is a singleton WebGL app with no teardown path (it was never written to be mounted/unmounted), so React's Strict Mode double-invoking effects in development would boot it twice. A boot guard in `NoirGame.jsx` also protects against this directly.
 - Save data uses IndexedDB in the browser and is per-origin, same as the original file. Saving is disabled during dream sequences, and loading a slot from inside a running game restarts the page and resumes into that slot.
 - The pause menu freezes the simulation, scripted timers and audio.
+- Lighting: all surfaces are authored as `MeshLambertMaterial`, which `engine.js` routes to a matte per-pixel material at startup (walls and floors are single quads, so vertex lighting could not show a light pool). `wetMat()` adds a specular sheen to rain-slick ground. Per-level lights and dressing live in the `ART PASS` section near the end of the zone builds.
+- Puzzle hints escalate: the valve and chime puzzles only state their answer after four failed attempts; before that they point at the notes that carry it.
 - The developer debug menu (teleports, noclip, puzzle skips) is off by default. Append `?debug` to the URL to enable it, then press `` ` `` or `F1`.
 - The picture is always 240 lines tall; the column count follows the window (320 at 4:3, 426 at 16:9, capped at 21:9) so pixels stay square.
 - To modify game logic, edit `public/game/engine.js` directly — it's the same script that was in the original `<script>` tag, so all existing documentation/notes about the game's internals still apply.
