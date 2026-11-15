@@ -2,7 +2,7 @@
 
 *A man returns, one year later, to search a rain-soaked apartment building for his missing wife — solving the puzzles of his own grief before the last train leaves without him.*
 
-**[▶ Play it now](#running-locally)** — first-person psychological horror/mystery, browser-based, no install. PS2-era low-res rendering, entirely procedural sound, two endings.
+**[Run it locally](#running-locally)** — first-person psychological horror/mystery, browser-based, no install. PS2-era low-res rendering, entirely procedural sound, two endings.
 
 ![Landing page](docs/screenshots/landing.png)
 
@@ -40,8 +40,8 @@ This is the original single-file browser game (`noir-slice.html`) repackaged as 
 
 The game itself is a large, self-contained, imperative Three.js application — hundreds of functions and closures wired together with plain DOM `getElementById` lookups, not React state. Rewriting that into hundreds of React components would risk breaking the carefully debugged game logic for no real benefit. Instead:
 
-- The game's original HTML markup and CSS are embedded verbatim (byte-for-byte identical to the source file) inside a client component, `app/game/NoirGame.jsx`.
-- The game's ~2,900-line engine script lives untouched at `public/game/engine.js`.
+- The game's original HTML markup and CSS are embedded as raw strings (not hand-converted to JSX) inside a client component, `app/game/NoirGame.jsx`, plus a small block of metro-zone HUD overrides.
+- The game's ~3,100-line engine script lives at `public/game/engine.js` and is still a plain, framework-free script; it has been patched in place since the port.
 - Three.js r128 is hosted locally at `public/game/three.min.js` (not loaded from a third-party CDN at runtime, so the deployed site doesn't depend on cdnjs staying up).
 - On mount, the component injects the markup, then loads `three.min.js` and `engine.js` as ordinary `<script>` tags in order — exactly how the browser ran them in the original file.
 - `app/page.js` dynamically imports the game with `ssr:false`, since the engine touches `window`/`document`/canvas/WebGL directly and was never written to run outside a browser.
@@ -80,10 +80,19 @@ Because the build is a static export, you can deploy `out/` to essentially any s
 - **Netlify**: drag-and-drop the `out/` folder in the Netlify dashboard, or connect the repo and set the build command to `npm run build` and the publish directory to `out`.
 - **GitHub Pages / S3 / Cloudflare Pages / any static host**: upload the contents of `out/` directly.
 
+If the site is served from a subpath rather than the domain root (a GitHub Pages project site, for example), build with the base path set so asset URLs are prefixed:
+
+```bash
+NEXT_PUBLIC_BASE_PATH=/Noir-Transit npm run build
+```
+
 ## Notes
 
 - `reactStrictMode` is disabled in `next.config.mjs`. The game engine is a singleton WebGL app with no teardown path (it was never written to be mounted/unmounted), so React's Strict Mode double-invoking effects in development would boot it twice. A boot guard in `NoirGame.jsx` also protects against this directly.
-- Save data uses IndexedDB in the browser and is per-origin, same as the original file.
+- Save data uses IndexedDB in the browser and is per-origin, same as the original file. Saving is disabled during dream sequences, and loading a slot from inside a running game restarts the page and resumes into that slot.
+- The pause menu freezes the simulation, scripted timers and audio.
+- The developer debug menu (teleports, noclip, puzzle skips) is off by default. Append `?debug` to the URL to enable it, then press `` ` `` or `F1`.
+- The picture is always 240 lines tall; the column count follows the window (320 at 4:3, 426 at 16:9, capped at 21:9) so pixels stay square.
 - To modify game logic, edit `public/game/engine.js` directly — it's the same script that was in the original `<script>` tag, so all existing documentation/notes about the game's internals still apply.
 
 ## License

@@ -10,6 +10,26 @@
 "use strict";
 const $=id=>document.getElementById(id);
 
+/* ---------------- Game timers ----------------
+   Every scripted beat in the game goes through later()/cancelLater() so
+   that (a) a timer that comes due while the pause menu is open is held and
+   replayed, in order, on resume, and (b) loading a save can cancel everything
+   still pending from the session being replaced. UI-only timers use uiTimeout. */
+const uiTimeout=window.setTimeout.bind(window), _rawClear=window.clearTimeout.bind(window);
+const gameTimers=new Map(); let _timerSeq=1, gamePaused=false, _pausedAt=0; let _held=[];
+function _armTimer(tok,fn,ms){
+  gameTimers.set(tok,uiTimeout(()=>{
+    if(gamePaused){ _held.push({tok,fn,due:performance.now()}); return; }
+    gameTimers.delete(tok); fn(); },ms)); }
+const later=(fn,ms)=>{ const tok=_timerSeq++; _armTimer(tok,fn,ms||0); return tok; };
+const cancelLater=tok=>{ if(gameTimers.has(tok)){ _rawClear(gameTimers.get(tok)); gameTimers.delete(tok); }
+  _held=_held.filter(h=>h.tok!==tok); };
+function pauseGameTimers(){ if(gamePaused)return; gamePaused=true; _pausedAt=performance.now(); }
+function resumeGameTimers(){ if(!gamePaused)return; gamePaused=false;
+  const h=_held.sort((a,b)=>a.due-b.due); _held=[];
+  for(const x of h)_armTimer(x.tok,x.fn,Math.max(0,x.due-_pausedAt)); }
+function clearGameTimers(){ for(const id of gameTimers.values())_rawClear(id); gameTimers.clear(); _held=[]; }
+
 /* ---------------- CONFIG (all tunables in one place) ---------------- */
 const CFG={
   RW:320, RH:240,                 // internal render
@@ -48,13 +68,13 @@ const AU={ctx:null,master:null,rain:null,ringTimer:null,
     const g=this.ctx.createGain(); g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
     s.connect(bp);bp.connect(g);g.connect(this.master); s.start(t); s.stop(t+dur+.05); },
   step(run){ this.burst(.05,run?300:240,.10,1.2); },
-  knock(){ this.burst(.06,180,.5,1.4); setTimeout(()=>this.burst(.06,170,.45,1.4),190); setTimeout(()=>this.burst(.06,160,.4,1.4),380); },
-  rattle(){ this.burst(.15,700,.22,3); setTimeout(()=>this.burst(.12,650,.18,3),120); },
+  knock(){ this.burst(.06,180,.5,1.4); later(()=>this.burst(.06,170,.45,1.4),190); later(()=>this.burst(.06,160,.4,1.4),380); },
+  rattle(){ this.burst(.15,700,.22,3); later(()=>this.burst(.12,650,.18,3),120); },
   paper(){ this.burst(.18,2600,.14,1); },
   creak(){ this.blip(160,1.1,"sawtooth",.05,-90); },
   thud(){ this.blip(90,.4,"sine",.5,-50); this.burst(.09,140,.35,1); },
-  key(){ this.burst(.05,3200,.2,4); setTimeout(()=>this.burst(.05,2600,.16,4),90); },
-  ringStart(){ if(this.ringTimer)return; const ring=()=>{ for(let i=0;i<9;i++){ setTimeout(()=>{this.blip(920,.05,"sine",.14); this.blip(650,.05,"sine",.14);},i*90);} };
+  key(){ this.burst(.05,3200,.2,4); later(()=>this.burst(.05,2600,.16,4),90); },
+  ringStart(){ if(this.ringTimer)return; const ring=()=>{ for(let i=0;i<9;i++){ later(()=>{this.blip(920,.05,"sine",.14); this.blip(650,.05,"sine",.14);},i*90);} };
     ring(); this.ringTimer=setInterval(ring,2400); },
   ringStop(){ clearInterval(this.ringTimer); this.ringTimer=null; },
   drone(){ if(!this.ctx)return; const t=this.ctx.currentTime;
@@ -206,13 +226,13 @@ let baseFogFar=CFG.fogFar;
 /* fade + travel */
 let travelLock=false;
 function fadeTo(cb,ms){ ms=ms||700; const f=$("fader"); f.style.transition=`opacity ${ms}ms`; f.style.opacity=1;
-  setTimeout(()=>{ cb&&cb(); f.style.opacity=0; },ms+60); }
+  later(()=>{ cb&&cb(); f.style.opacity=0; },ms+60); }
 function travel(zone,x,z,yaw,cb){ if(travelLock)return; travelLock=true;
   fadeTo(()=>{ setZone(zone); player.x=x; player.z=z; if(yaw!==undefined)player.yaw=yaw; player.pitch=0;
     player.floorY=(ZONES[zone].ground?ZONES[zone].ground(x,z):0)||0;
     travelLock=false; onZoneEnter[zone]&&onZoneEnter[zone](); cb&&cb(); autosaveCheckpoint(); },700); }
 /* scripted sequence runner: seq([[msFromPrev,fn],...]) */
-function seq(steps){ let t=0; const ids=[]; for(const [d,fn] of steps){ t+=d; ids.push(setTimeout(fn,t)); } return ids; }
+function seq(steps){ let t=0; const ids=[]; for(const [d,fn] of steps){ t+=d; ids.push(later(fn,t)); } return ids; }
 
 _sceneAdd(new THREE.AmbientLight(CFG.ambientColor,CFG.ambient));
 const hemi=new THREE.HemisphereLight(0x40485a,0x1a160f,0.25); _sceneAdd(hemi);
@@ -248,7 +268,13 @@ const postMat=new THREE.ShaderMaterial({
       gl_FragColor=vec4(c,1.);
     }`});
 postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),postMat));
-function onResize(){ renderer.setSize(innerWidth,innerHeight); }
+function onResize(){ renderer.setSize(innerWidth,innerHeight);
+  // 240 lines always; the column count follows the window so pixels stay square
+  // (4:3 → 320 wide, 16:9 → 426, capped at 21:9 so ultrawide doesn't fish-eye).
+  const aspect=Math.max(1,Math.min(21/9,innerWidth/Math.max(1,innerHeight)));
+  const rw=Math.round(CFG.RH*aspect);
+  rt.setSize(rw,CFG.RH); postMat.uniforms.res.value.set(rw,CFG.RH);
+  camera.aspect=aspect; camera.updateProjectionMatrix(); }
 addEventListener("resize",onResize); onResize();
 
 /* ---------------- Materials with texel density ---------------- */
@@ -603,8 +629,8 @@ for(const num of["8002","8003","8004","8005","8006"]){
   if(num==="8004"){
     interact(d,"Knock on 8004",()=>{ AU.knock();
       if(note8004Given)return say(null,"No answer. Whoever slid the note is done talking.");
-      setTimeout(()=>{ AU.burst(.4,300,.2,1); /*chair scrape*/
-        setTimeout(()=>{ AU.paper(); note8004Mesh=new THREE.Mesh(new THREE.PlaneGeometry(.32,.42),new THREE.MeshLambertMaterial({map:TEX.noteSmall,side:THREE.DoubleSide}));
+      later(()=>{ AU.burst(.4,300,.2,1); /*chair scrape*/
+        later(()=>{ AU.paper(); note8004Mesh=new THREE.Mesh(new THREE.PlaneGeometry(.32,.42),new THREE.MeshLambertMaterial({map:TEX.noteSmall,side:THREE.DoubleSide}));
           note8004Mesh.rotation.x=-Math.PI/2.2; note8004Mesh.position.set(doorXs["8004"],0.05,.7); scene.add(note8004Mesh);
           interact(note8004Mesh,"Take the note",()=>{ scene.remove(note8004Mesh); collectNote("n_8004"); AU.paper(); openNote("n_8004"); checkObjective(); },{range:2.6,zone:"floor8"});
           say(null,"A chair scrapes. Paper slides under the door.");
@@ -710,7 +736,7 @@ const c8007=addCollider(16.5,2.2,1.0,.14,"door8007");
 const ix8007=interact(d8007,"Knock on 8007",()=>{
   if(door8007Open)return;
   AU.knock();
-  setTimeout(()=>{ AU.creak(); door8007Open=true; c8007.on=false; dread=Math.min(1,dread+.3);
+  later(()=>{ AU.creak(); door8007Open=true; c8007.on=false; dread=Math.min(1,dread+.3);
     say(null,"No hand touches it. The door of 8007 swings open on its own.");
     setObjective("Search <b>8007</b> — Eileen's old flat. She said: <b>find the note.</b>");
   },900);
@@ -904,9 +930,9 @@ renderInv();
 let subTimer=null;
 function say(who,text,dur){ const el=$("subtitle");
   el.innerHTML=(who?`<span class="who">${who}</span>`:"")+text;
-  clearTimeout(subTimer); subTimer=setTimeout(()=>el.innerHTML="",dur||Math.max(2600,text.length*55)); }
+  cancelLater(subTimer); subTimer=later(()=>el.innerHTML="",dur||Math.max(2600,text.length*55)); }
 function setObjective(html){ $("objText").innerHTML=html; $("objective").classList.remove("fadein"); void $("objective").offsetWidth; $("objective").classList.add("fadein"); }
-function toast(t){ const el=$("toast"); const d=document.createElement("div"); d.textContent=t; d.className="fadein"; el.appendChild(d); setTimeout(()=>d.remove(),3800); }
+function toast(t){ const el=$("toast"); const d=document.createElement("div"); d.textContent=t; d.className="fadein"; el.appendChild(d); uiTimeout(()=>d.remove(),3800); }
 
 let uiOpen=null;
 function openNote(id){ uiOpen="note"; document.exitPointerLock?.();
@@ -938,7 +964,7 @@ function updDial(){ $("dialDisp").textContent=dialed.replace(/(\d{3})(?=\d)/g,"$
 let puzzleSolved=false;
 function solvePuzzle(){ if(puzzleSolved)return; puzzleSolved=true;
   AU.blip(920,.4,"sine",.12); 
-  setTimeout(()=>{ AU.thud(); piece1.visible=true; keyR.visible=true; ixPiece.enabled=true; ixKey.enabled=true;
+  later(()=>{ AU.thud(); piece1.visible=true; keyR.visible=true; ixPiece.enabled=true; ixKey.enabled=true;
     dread=Math.min(1,dread+.4);
     say(null,"The line clicks — and something drops behind you. Two somethings, onto her floor.");
     setObjective("Take what fell: <b>Puzzle Piece #1</b> and the <b>Old Restock key</b>.");
@@ -948,7 +974,7 @@ function checkObjective(){
     GS.elevG=true;
     setObjective("Down to the alley. The <b>elevator</b> is running now — ground floor, then the back door.");
     figureShown=true; figure.visible=true; figure.position.set(1.2,0,1.1); figureT=0; AU.drone(); dread=Math.min(1,dread+.5);
-    setTimeout(()=>say(null,"At the far end of the corridor: a shape. Long hair drifting, as if underwater. It does not have a face. It is already leaving."),1200);
+    later(()=>say(null,"At the far end of the corridor: a shape. Long hair drifting, as if underwater. It does not have a face. It is already leaving."),1200);
   } else if(collected.has("n_8004")&&!door8007Open){
     setObjective("<b>8007</b> is the last door. The far end of the corridor.");
   }
@@ -967,12 +993,15 @@ addEventListener("keydown",e=>{ keys[e.code]=true;
   if(e.code==="Tab"){ e.preventDefault(); if(uiOpen==="journal")closeJournal(); else if(!uiOpen)openJournal(); }
   if(e.code==="KeyE"&&uiOpen==="note")closeNote();
   if(e.code==="Escape"){ if(uiOpen==="note")closeNote(); else if(uiOpen==="dial")closeDial(); else if(uiOpen==="journal")closeJournal(); else if(uiOpen==="elev")closeElev(); else if(uiOpen==="pause")closePause(); else if(!uiOpen&&running)openPause(false); }
-  if(e.code==="Backquote"||e.code==="F1"||e.code==="F2"||e.key==="`"||e.key==="~"||e.key==="§"){ e.preventDefault(); if(!uiOpen||uiOpen==="debug")toggleDebug(); }
+  if(DEBUG_ENABLED&&(e.code==="Backquote"||e.code==="F1"||e.code==="F2"||e.key==="`"||e.key==="~"||e.key==="§")){ e.preventDefault(); if(!uiOpen||uiOpen==="debug")toggleDebug(); }
   if(e.code==="Escape"&&uiOpen==="debug")toggleDebug();
   if(e.code==="KeyF"&&!uiOpen&&!player.seated)toggleTorch();
   if(uiOpen==="dial"){ const m=e.code.match(/^(?:Digit|Numpad)(\d)$/); if(m&&dialed.length<9){ dialed+=m[1]; AU.dial(); updDial(); } }
 });
 addEventListener("keyup",e=>keys[e.code]=false);
+function releaseKeys(){ for(const k in keys)keys[k]=false; }
+addEventListener("blur",releaseKeys);
+document.addEventListener("visibilitychange",()=>{ if(document.hidden)releaseKeys(); });
 let locked=false;
 document.addEventListener("pointerlockchange",()=>{ locked=document.pointerLockElement===$("c"); });
 let relockTimer=0;
@@ -984,11 +1013,11 @@ function requestGameLock(){
   }catch(e){}
 }
 function relock(){
-  clearTimeout(relockTimer);
+  cancelLater(relockTimer);
   if(!running||uiOpen)return;
   // Pointer-lock exit is asynchronous; requesting in the same task throws
   // in Chromium. Deferring also lets the canvas click path recover gracefully.
-  relockTimer=setTimeout(requestGameLock,80);
+  relockTimer=later(requestGameLock,80);
 }
 $("c").addEventListener("click",requestGameLock);
 addEventListener("mousemove",e=>{ if(!locked||uiOpen)return;
@@ -1026,13 +1055,13 @@ function startArrival(){
   say(null,"The last train. It lets him out into a station the colour of an old bruise. Nobody else gets off.",6200);
   setObjective("Step off the train. <b>Find the way up to the street.</b>");
   // doors are already open on arrival; close them a beat after the player would step off
-  setTimeout(()=>{ try{AU.doorChime();}catch(e){} },3600);
+  later(()=>{ try{AU.doorChime();}catch(e){} },3600);
 }
 $("startBtn").onclick=beginGame;
 
 let ringing=false;
 function standUp(){ player.seated=false; setObjective("The telephone is ringing. <b>Answer it.</b>");
-  setTimeout(()=>{ ringing=true; AU.ringStart();
+  later(()=>{ ringing=true; AU.ringStart();
     say(null,"The landline. Nobody rings that line. The doctor says nobody rings that line."); },900); }
 
 /* answer phone (8001) */
@@ -1041,8 +1070,8 @@ interact(phone1,"Answer the telephone",()=>{
   ringing=false; AU.ringStop(); phoneAnswered=true;
   const lines=[["EILEEN — ON THE LINE","Thomas."],["EILEEN","Don't ask where I am. You always ask, and it always hurts you."],
     ["EILEEN","Find the note. My old flat. Eight-oh-seven. You remember the number."],[null,"A click. A dial tone. A year of silence, resumed."]];
-  let t=0; lines.forEach((l,i)=>{ setTimeout(()=>say(l[0],l[1],i===3?4200:3400), t); t+= i===3?3600:3600; });
-  setTimeout(()=>{ setObjective("Leave <b>flat 8001</b>. Her old flat is <b>8007</b>."); },t);
+  let t=0; lines.forEach((l,i)=>{ later(()=>say(l[0],l[1],i===3?4200:3400), t); t+= i===3?3600:3600; });
+  later(()=>{ setObjective("Leave <b>flat 8001</b>. Her old flat is <b>8007</b>."); },t);
 });
 
 /* ════════════════════════════════════════════════════════════════
@@ -1059,23 +1088,23 @@ AU.genHum=function(on){ if(!this.ctx)return;
     const lp=this.ctx.createBiquadFilter(); lp.type="lowpass"; lp.frequency.value=180;
     o.connect(lp);lp.connect(g);g.connect(this.master); o.start(); this._gen={o,g}; }
   else if(!on&&this._gen){ this._gen.g.gain.setTargetAtTime(.0001,this.ctx.currentTime,.2);
-    const G=this._gen; setTimeout(()=>G.o.stop(),800); this._gen=null; } };
+    const G=this._gen; later(()=>G.o.stop(),800); this._gen=null; } };
 AU.mnote=function(f){ if(!this.ctx)return; const t=this.ctx.currentTime;
   const o=this.ctx.createOscillator(),o2=this.ctx.createOscillator(),g=this.ctx.createGain();
   o.type="sine"; o.frequency.value=f; o2.type="sine"; o2.frequency.value=f*2.01;
   g.gain.setValueAtTime(.22,t); g.gain.exponentialRampToValueAtTime(.0001,t+1.6);
   o.connect(g);o2.connect(g);g.connect(this.master); o.start(t);o2.start(t);o.stop(t+1.7);o2.stop(t+1.7); };
-AU.melody=function(){ const N=[659,523,587,392,523,659,784,659]; N.forEach((f,i)=>setTimeout(()=>this.mnote(f),i*520)); };
-AU.discord=function(){ this.mnote(233); setTimeout(()=>this.mnote(247),60); };
+AU.melody=function(){ const N=[659,523,587,392,523,659,784,659]; N.forEach((f,i)=>later(()=>this.mnote(f),i*520)); };
+AU.discord=function(){ this.mnote(233); later(()=>this.mnote(247),60); };
 AU.valve=function(){ this.burst(.2,500,.25,2); this.blip(140,.5,"sawtooth",.08,-40); };
-AU.splash=function(){ this.burst(.6,700,.2,1); setTimeout(()=>this.burst(.5,500,.15,1),300); };
+AU.splash=function(){ this.burst(.6,700,.2,1); later(()=>this.burst(.5,500,.15,1),300); };
 AU.sirenStart=function(){ if(this._sir)return; this._sir=setInterval(()=>{
-  this.blip(660,.7,"sine",.02,120); setTimeout(()=>this.blip(780,.7,"sine",.018,-120),700); },1600); };
+  this.blip(660,.7,"sine",.02,120); later(()=>this.blip(780,.7,"sine",.018,-120),700); },1600); };
 AU.sirenStop=function(){ clearInterval(this._sir); this._sir=null; };
 AU.tenantsStart=function(){ if(this._ten)return; this._ten=setInterval(()=>{
   const r=Math.random();
-  if(r<.4){ for(let i=0;i<4;i++)setTimeout(()=>this.burst(.12,300+Math.random()*300,.05,2),i*160); }
-  else if(r<.7){ this.blip(760,.9,"sine",.03,-220); setTimeout(()=>this.blip(700,.7,"sine",.025,-180),1000); }
+  if(r<.4){ for(let i=0;i<4;i++)later(()=>this.burst(.12,300+Math.random()*300,.05,2),i*160); }
+  else if(r<.7){ this.blip(760,.9,"sine",.03,-220); later(()=>this.blip(700,.7,"sine",.025,-180),1000); }
   },2600); };
 AU.tenantsStop=function(){ clearInterval(this._ten); this._ten=null; };
 AU.trainStart=function(){ if(!this.ctx||this._tr)return; const s=this.ctx.createBufferSource(); s.buffer=this.noiseBuf(3); s.loop=true;
@@ -1083,7 +1112,7 @@ AU.trainStart=function(){ if(!this.ctx||this._tr)return; const s=this.ctx.create
   const g=this.ctx.createGain(); g.gain.value=.0001; g.gain.setTargetAtTime(.14,this.ctx.currentTime,1.2);
   s.connect(lp);lp.connect(g);g.connect(this.master); s.start(); this._tr={s,g}; };
 AU.trainStop=function(){ if(this._tr){ this._tr.g.gain.setTargetAtTime(.0001,this.ctx.currentTime,.5);
-  const T=this._tr; setTimeout(()=>T.s.stop(),1500); this._tr=null; } };
+  const T=this._tr; later(()=>T.s.stop(),1500); this._tr=null; } };
 
 /* ---------- opening / environment audio ---------- */
 AU.stationStart=function(){ if(!this.ctx||this._stn)return;   // low subway hum + faint fluorescent buzz
@@ -1096,7 +1125,7 @@ AU.stationStart=function(){ if(!this.ctx||this._stn)return;   // low subway hum 
   buzz.connect(bhp);bhp.connect(bg);bg.connect(this.master); buzz.start();
   this._stn={s,g,buzz,bg}; };
 AU.stationStop=function(){ if(this._stn){ const T=this._stn; T.g.gain.setTargetAtTime(.0001,this.ctx.currentTime,.6); T.bg.gain.setTargetAtTime(.0001,this.ctx.currentTime,.6);
-  setTimeout(()=>{try{T.s.stop();T.buzz.stop();}catch(e){}},1500); this._stn=null; } };
+  later(()=>{try{T.s.stop();T.buzz.stop();}catch(e){}},1500); this._stn=null; } };
 AU.trainArrive=function(){ if(!this.ctx)return;   // approaching train: rising rumble + brake squeal, then hiss of doors
   const s=this.ctx.createBufferSource(); s.buffer=this.noiseBuf(4);
   const lp=this.ctx.createBiquadFilter(); lp.type="lowpass"; lp.frequency.setValueAtTime(60,this.ctx.currentTime); lp.frequency.linearRampToValueAtTime(260,this.ctx.currentTime+2.4);
@@ -1107,7 +1136,7 @@ AU.trainArrive=function(){ if(!this.ctx)return;   // approaching train: rising r
   const sqg=this.ctx.createGain(); sqg.gain.setValueAtTime(.0001,this.ctx.currentTime+2.0); sqg.gain.linearRampToValueAtTime(.03,this.ctx.currentTime+2.4); sqg.gain.setTargetAtTime(.0001,this.ctx.currentTime+3.3,.3);
   const sqf=this.ctx.createBiquadFilter(); sqf.type="bandpass"; sqf.frequency.value=1200; sqf.Q.value=6;
   sq.connect(sqf);sqf.connect(sqg);sqg.connect(this.master); sq.start(); sq.stop(this.ctx.currentTime+4);
-  setTimeout(()=>this.doorChime&&this.doorChime(),3400); };
+  later(()=>this.doorChime&&this.doorChime(),3400); };
 AU.doorChime=function(){ if(!this.ctx)return; [880,1174].forEach((f,i)=>{ const o=this.ctx.createOscillator(); o.type="sine"; o.frequency.value=f;
   const g=this.ctx.createGain(); g.gain.value=.0001; const t=this.ctx.currentTime+i*.18; g.gain.setTargetAtTime(.08,t,.02); g.gain.setTargetAtTime(.0001,t+.16,.12);
   o.connect(g);g.connect(this.master); o.start(t); o.stop(t+.7); }); };
@@ -1131,17 +1160,17 @@ AU.windStart=function(){ if(!this.ctx||this._wind)return;   // wet night wind fo
   this._windLfo=setInterval(()=>{ if(this._wind)g.gain.setTargetAtTime(.03+Math.random()*.05,this.ctx.currentTime,1.4); },2600);
   this._wind={s,g}; };
 AU.windStop=function(){ if(this._wind){ const T=this._wind; T.g.gain.setTargetAtTime(.0001,this.ctx.currentTime,1); clearInterval(this._windLfo);
-  setTimeout(()=>{try{T.s.stop();}catch(e){}},1500); this._wind=null; } };
-AU.stepStair=function(){ this.burst(.06,180,.12,1.4); setTimeout(()=>this.burst(.03,120,.08,1.2),40); };  // heavier footfall on concrete steps
+  later(()=>{try{T.s.stop();}catch(e){}},1500); this._wind=null; } };
+AU.stepStair=function(){ this.burst(.06,180,.12,1.4); later(()=>this.burst(.03,120,.08,1.2),40); };  // heavier footfall on concrete steps
 /* ── ambient one-shots (ref: SH2 — distant metal, unseen drips, wind gusts, low thunder) ── */
 AU.thunder=function(){ if(!this.ctx)return; const t=this.ctx.currentTime;
   const s=this.ctx.createBufferSource(); s.buffer=this.noiseBuf(3.4);
   const lp=this.ctx.createBiquadFilter(); lp.type="lowpass"; lp.frequency.setValueAtTime(300,t); lp.frequency.exponentialRampToValueAtTime(55,t+3.0);
   const g=this.ctx.createGain(); g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.15,t+.3); g.gain.exponentialRampToValueAtTime(.0001,t+3.2);
   s.connect(lp);lp.connect(g);g.connect(this.master); s.start(t); s.stop(t+3.4); };
-AU.clank=function(){ const f=480+Math.random()*320; this.burst(.09,f,.045,7); setTimeout(()=>this.burst(.14,f*.72,.028,6),130+Math.random()*90); };
+AU.clank=function(){ const f=480+Math.random()*320; this.burst(.09,f,.045,7); later(()=>this.burst(.14,f*.72,.028,6),130+Math.random()*90); };
 AU.drip=function(){ const f=1800+Math.random()*1000; this.blip(f,.09,"sine",.05,-600); };
-AU.pipeKnock=function(){ this.burst(.05,240,.09,2.5); setTimeout(()=>this.burst(.05,225,.06,2.5),110); setTimeout(()=>this.burst(.04,255,.045,2.5),265); };
+AU.pipeKnock=function(){ this.burst(.05,240,.09,2.5); later(()=>this.burst(.05,225,.06,2.5),110); later(()=>this.burst(.04,255,.045,2.5),265); };
 AU.gust=function(){ if(!this.ctx)return; const t=this.ctx.currentTime; const s=this.ctx.createBufferSource(); s.buffer=this.noiseBuf(2.6);
   const bp=this.ctx.createBiquadFilter(); bp.type="bandpass"; bp.Q.value=.8;
   bp.frequency.setValueAtTime(380,t); bp.frequency.exponentialRampToValueAtTime(880,t+1.1); bp.frequency.exponentialRampToValueAtTime(300,t+2.4);
@@ -1174,7 +1203,7 @@ AU.tvMurmur=function(){ if(!this.ctx)return; const t=this.ctx.currentTime;      
   const g=this.ctx.createGain(); g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.014,t+.4);
   g.gain.linearRampToValueAtTime(.0001,t+2.1);
   s.connect(bp);bp.connect(g);g.connect(this.master); s.start(t); s.stop(t+2.2);
-  setTimeout(()=>this.blip(900+Math.random()*300,.3,"sine",.006,-200),600+Math.random()*600); };
+  later(()=>this.blip(900+Math.random()*300,.3,"sine",.006,-200),600+Math.random()*600); };
 AU.pianoFar=function(){ if(!this.ctx)return; const t0=this.ctx.currentTime;      // flat 2104 practising at midnight
   const scale=[523,587,659,698,784], run=2+Math.floor(Math.random()*3);
   for(let i=0;i<=run;i++){ const wrong=(i===run&&Math.random()<.5);
@@ -1185,7 +1214,7 @@ AU.pianoFar=function(){ if(!this.ctx)return; const t0=this.ctx.currentTime;     
     g.gain.exponentialRampToValueAtTime(.0001,t+1.1);
     o.connect(g);g.connect(this.master); o.start(t); o.stop(t+1.2);
     if(wrong)break; } };
-AU.heartbeat=function(){ this.burst(.09,52,.16,1.1); setTimeout(()=>this.burst(.07,48,.12,1.1),320); };
+AU.heartbeat=function(){ this.burst(.09,52,.16,1.1); later(()=>this.burst(.07,48,.12,1.1),320); };
 AU.paGarble=function(){ if(!this.ctx)return; const t=this.ctx.currentTime;       // an announcement in no language
   const o=this.ctx.createOscillator(); o.type="square";
   const bp=this.ctx.createBiquadFilter(); bp.type="bandpass"; bp.frequency.value=820; bp.Q.value=5;
@@ -1437,7 +1466,7 @@ inZone("arrival",()=>{
       if(travelLock)return;
       say(null,"Through the station exit and into the rain.",4200);
       AU.trainDepart(); AU.stationStop();
-      setTimeout(()=>{ AU.windStart();
+      later(()=>{ AU.windStart();
         travel("street",-96,26.5,0,()=>{
           say(null,"Eleven-forty. The last block home. Rain the exact temperature of being alone. The prescription bag has gone soft in his pocket.",6500);
           setObjective("Home. <b>Up the front steps of Haldane Court.</b>"); }); },1600);
@@ -1578,7 +1607,7 @@ inZone("street",()=>{
 function enterBuilding(){
   setObjective("…"); AU.doorHeavy(); AU.windStop();
   say(null,"The key. The stairs. The door. He gets exactly as far as the hallway light switch — and the floor comes up to meet him.",5200);
-  setTimeout(()=>fadeTo(()=>{ setZone("dream1"); player.seated=true; canStand=false;
+  later(()=>fadeTo(()=>{ setZone("dream1"); player.seated=true; canStand=false;
     seatPos={x:100,y:1.05,z:20}; player.x=100; player.z=20; player.yaw=0; player.pitch=0;
     dream1Sequence(); },1400),2400);
 }
@@ -1793,7 +1822,7 @@ inZone("alley",()=>{
     if(inv.has("key_restock")){ GS.restockUnlocked=true; AU.key(); AU.creak();
       say("THOMAS","Her key. His hands remember how a lock gives.");
       setObjective("Inside: the restock room. <b>Find the generator.</b>");
-      setTimeout(()=>travel("restock",405,6.6,Math.PI,()=>{}),1200); }
+      later(()=>travel("restock",405,6.6,Math.PI,()=>{}),1200); }
     else { AU.rattle(); say(null,"Locked. Old brass. The kind of lock a small key with a worn head would fit."); }
   });
   // ══ dressing — damp, lived-in, seedy (ref: SH2 palette = colour from materials, small pools of light) ══
@@ -1943,7 +1972,7 @@ inZone("restock",()=>{
     if(GS.generatorOn)return;
     GS.generatorOn=true; AU.valve(); AU.genHum(true); genProp.userData.lever.rotation.z=-.5;
     genLight.intensity=1.2; say(null,"It catches. It coughs. It runs. The bulb overhead remembers its job—",3400);
-    setTimeout(()=>{ AU.genHum(false); AU.sting(); dread=1;
+    later(()=>{ AU.genHum(false); AU.sting(); dread=1;
       fadeTo(()=>startChase(),900); },3600);
   });
   /* ---- state 2: mossy brick + 24 boxes (hidden until after chase) ---- */
@@ -2376,7 +2405,7 @@ function strikeNode(n){
 function solveMusicBox(){
   AU.melody(); dread=0;
   say(null,"The box plays. Eight notes, thin and bright, a lullaby pushing back the rain — the song she hummed with her shoulder against his.",6600);
-  setTimeout(()=>{ piece3Mesh.visible=true; piece3Mesh.userData.ix3.enabled=true;
+  later(()=>{ piece3Mesh.visible=true; piece3Mesh.userData.ix3.enabled=true;
     note3Mesh.visible=true; note3Mesh.userData.ixn3.enabled=true; AU.thud();
     setObjective("Something dropped from the music box. <b>Take it.</b>"); },5200);
 }
@@ -2408,7 +2437,7 @@ function endingA(){
   GS.ending="A"; running=false; document.exitPointerLock?.();
   const f=$("fader"); f.style.transition="opacity 4000ms"; f.style.opacity=1;
   AU.sirenStart();
-  setTimeout(()=>{
+  later(()=>{
     finishGame("THE DROP",
       `Rain on the street. Lights that turn, and turn, and say nothing.<br>
       The ledge is empty now. The search is over because the searcher stopped.<br><br>
@@ -2437,7 +2466,7 @@ inZone("floor8",()=>{
       frameDown.rotation.x=0; frameDown.rotation.z=.03; frameDown.position.set(4.4,1.5,7.06);
       say(null,"He stands the frame up and gives the photograph back its wall. The two of them, on the roof. Complete — and something falls from behind the backing board.",6600);
       give("piece4","🧩","PIECE #4");
-      setTimeout(()=>{ if(inv.has("piece1")&&inv.has("piece2")&&inv.has("piece3")&&inv.has("piece4"))assembleKey(); },2500);
+      later(()=>{ if(inv.has("piece1")&&inv.has("piece2")&&inv.has("piece3")&&inv.has("piece4"))assembleKey(); },2500);
     } else say(null,"He stopped being able to look at it. Face-down for a year — an empty frame under the dust.");
   });
   safeProp=mkSafe(); safeProp.position.set(3.75,0,8.62); safeProp.rotation.y=Math.PI; scene.add(safeProp);
@@ -2446,10 +2475,10 @@ inZone("floor8",()=>{
     if(GS.safeKey&&inv.has("key_safe")){
       GS.safeOpen=true; AU.key(); AU.creak(); safeProp.userData.door.rotation.y=1.6; safeProp.userData.door.position.x=-.28;
       say(null,"The four-part key turns like it was oiled yesterday. Inside: photographs. A dried flower. A ring box. And a letter with his name on it — her exact hand.",6800);
-      setTimeout(()=>{ collectNote("n_letter"); openNote("n_letter");
+      later(()=>{ collectNote("n_letter"); openNote("n_letter");
         setObjective("The <b>metro</b>. Down, out the front doors, to the end of the street. <b>Go to her.</b>");
         GS.metroOpen=true;
-        setTimeout(()=>say("THOMAS","If there is time left — come. Then there is no time to lose.",4800),1200);
+        later(()=>say("THOMAS","If there is time left — come. Then there is no time to lose.",4800),1200);
       },7200);
     } else if(GS.safeKey){ say(null,"The key. It's in his hand. It has been the whole year, in pieces."); }
     else { AU.rattle(); say(null,"Locked. A strange slot — not for one key but for something assembled. <em>A four-part key.</em>"); }
@@ -2571,7 +2600,7 @@ function metroLogic(dt){
     if(trainGrp.userData.arriving&&trainGrp.position.x<=800+14.5&&d<6){
       figureBoarded=true; AU.trainStop(); AU.drone();
       say(null,"The doors open. She does not look back — she has never once looked back — she steps aboard, and the long hair settles, like water going still.",6400);
-      setTimeout(()=>{ figure.visible=false; setObjective("<b>Board the train.</b>");
+      later(()=>{ figure.visible=false; setObjective("<b>Board the train.</b>");
         boardDoor.visible=true; boardDoor.userData.ix.enabled=true; },3800);
     }
   }
@@ -2580,7 +2609,7 @@ function endingB(){
   running=false; document.exitPointerLock?.();
   const f=$("fader"); f.style.transition="opacity 2500ms"; f.style.opacity=1;
   AU.trainStart(); dread=1;
-  setTimeout(()=>{ dread=0; AU.trainStop();
+  later(()=>{ dread=0; AU.trainStop();
     finishGame("TRANSIT",
       `A few frames the eye refuses to hold — the car, the tunnel, the wrong angles of the dream —<br>
       and then: Thomas, seated. A window full of morning. Rails saying her hometown's name over and over.<br><br>
@@ -2649,13 +2678,15 @@ function finishGame(title,body){
 ZONE=null;
 
 /* ---------------- DEBUG MENU ---------------- */
+const DEBUG_ENABLED=new URLSearchParams(location.search).has("debug");
+if(!DEBUG_ENABLED)$("dbgToggle").style.display="none";
 const DBG={open:false,noclip:false,speed:1,infBatt:false,freezeDread:false,fullbright:false,raw:false,showCol:false,hud:false};
 const dbgAmb=new THREE.AmbientLight(0xffffff,0); scene.add(dbgAmb);
 let colGroup=null;
 function dbgBtn(id,fn){ $(id).onclick=fn; }
 function dbgFlag(id,key,lbl,after){ dbgBtn(id,()=>{ DBG[key]=!DBG[key];
   $(id).textContent=lbl+": "+(DBG[key]?"ON":"OFF"); $(id).classList.toggle("on",DBG[key]); after&&after(); }); }
-function toggleDebug(){ DBG.open=!DBG.open; $("dbgPanel").classList.toggle("show",DBG.open);
+function toggleDebug(){ if(!DEBUG_ENABLED)return; DBG.open=!DBG.open; $("dbgPanel").classList.toggle("show",DBG.open);
   if(DBG.open){ uiOpen="debug"; document.exitPointerLock?.(); }
   else if(uiOpen==="debug"){ uiOpen=null; relock(); } }
 function dbgEnsureRunning(){ if(!running&&$("title").style.display!=="none"){ beginGame(); } }
@@ -2739,7 +2770,8 @@ const clock=new THREE.Clock();
 let stepAcc=0, bobT=0;
 function tick(){
   requestAnimationFrame(tick);
-  const dt=Math.min(.05,clock.getDelta()); const t=clock.elapsedTime;
+  const rawDt=Math.min(.05,clock.getDelta()); const t=clock.elapsedTime;
+  const dt=(uiOpen==="pause"&&running)?0:rawDt;   // pause menu freezes the simulation
 
   /* door open animation */
   if(door8001Open&&d8001.rotation.y> -1.9)d8001.rotation.y-=dt*2.2;
@@ -2865,7 +2897,8 @@ const ZONE_LABEL={arrival:"The Last Train",street:"Haldane Court — Street",dre
 
 function thumbnail(){ try{
     const src=$("c"); const t=document.createElement("canvas"); t.width=160; t.height=120;
-    t.getContext("2d").drawImage(src,0,0,160,120); return t.toDataURL("image/jpeg",.55);
+    const sw=Math.min(src.width,src.height*4/3), sh=sw*3/4;   // centre 4:3 crop
+    t.getContext("2d").drawImage(src,(src.width-sw)/2,(src.height-sh)/2,sw,sh,0,0,160,120); return t.toDataURL("image/jpeg",.55);
   }catch(e){ return null; } }
 
 /* gather everything needed to resume — zone, transform, progress flags, inventory, journal */
@@ -2877,11 +2910,15 @@ function captureState(){
     player:{x:player.x,z:player.z,yaw:player.yaw,floorY:player.floorY}, canStand,
     curZone, torchOn, battery, dread,
     door8001Open, door8007Open, phoneAnswered, puzzleSolved, figureShown,
-    dialed, locked:!!locked, note8004Given:!!note8004Given, figureBoarded:!!figureBoarded };
+    dialed, note8004Given:!!note8004Given, figureBoarded:!!figureBoarded };
 }
 
 /* rebuild the running-game variables from a saved record, then re-derive every visual */
 function applyState(s){
+  // drop every scripted beat still pending from the session being replaced
+  clearGameTimers(); travelLock=false;
+  $("title").style.opacity=0; $("title").style.display="none";
+  $("fader").style.opacity=0; $("subtitle").innerHTML="";
   setZone(s.curZone);
   player.x=s.player.x; player.z=s.player.z; player.yaw=s.player.yaw; player.pitch=0;
   player.floorY=s.player.floorY||0; player.seated=false; canStand=(s.canStand!==false);
@@ -2891,11 +2928,13 @@ function applyState(s){
   torchOn=!!s.torchOn; battery=(s.battery??100); dread=s.dread||0;
   door8001Open=!!s.door8001Open; door8007Open=!!s.door8007Open; phoneAnswered=!!s.phoneAnswered;
   ringing=false; try{AU.ringStop();}catch(e){}
-  puzzleSolved=!!s.puzzleSolved; figureShown=!!s.figureShown; dialed=s.dialed||""; locked=!!s.locked;
+  puzzleSolved=!!s.puzzleSolved; figureShown=!!s.figureShown; dialed=s.dialed||"";
   note8004Given=!!s.note8004Given; figureBoarded=!!s.figureBoarded;
   startTime=performance.now()-(s.elapsed||0);
   syncPropsToState();
   setObjective(s.objective||"");
+  syncProgressToState();
+  syncAudioToZone();
   toast("Loaded — "+(s.zoneLabel||s.curZone));
 }
 
@@ -2922,23 +2961,64 @@ function syncPropsToState(){
   if(GS.safeOpen&&safeProp){ safeProp.userData.door.rotation.y=1.6; safeProp.userData.door.position.x=-.28; }
 }
 
+/* A save can land in the gap between a flag flipping and the scripted beat that
+   follows it (the phone starting to ring, the chase starting, the key being
+   assembled...). Those beats are timers and are not saved, so finish or rewind
+   each one here — otherwise the save resumes into a soft-lock. */
+function syncProgressToState(){
+  figure.visible=false;
+  // woke in 8001 but never answered: the phone has to be ringing again
+  if(GS.dream1Done&&!phoneAnswered){ ringing=true; if(curZone==="floor8")try{AU.ringStart();}catch(e){} }
+  // generator thrown but the chase never began: put the lever back
+  if(GS.generatorOn&&!GS.boxPhase&&!GS.chase){ GS.generatorOn=false;
+    if(genProp)genProp.userData.lever.rotation.z=0; if(genLight)genLight.intensity=0; }
+  // both box rewards found but the way on was never opened
+  if(GS.boxFound.key&&GS.boxFound.piece){ GS.alley2=true; GS.elev21=true; if(moonSpr)moonSpr.visible=true; }
+  if(inv.has("piece1")&&inv.has("key_restock"))GS.elevG=true;
+  // music box solved: its note has to be readable as well as visible
+  if(note3Mesh&&note3Mesh.userData.ixn3)note3Mesh.userData.ixn3.enabled=note3Mesh.visible;
+  // all four pieces in hand but never assembled
+  if(!GS.safeKey&&["piece1","piece2","piece3","piece4"].every(p=>inv.has(p)))assembleKey();
+  // safe opened but the letter beat never ran
+  if(GS.safeOpen&&!GS.metroOpen){ GS.metroOpen=true; collectNote("n_letter");
+    setObjective("The <b>metro</b>. Down, out the front doors, to the end of the street. <b>Go to her.</b>"); }
+  // she boarded but the doors were never offered
+  if(boardDoor){ boardDoor.visible=!!figureBoarded; boardDoor.userData.ix.enabled=!!figureBoarded; }
+  if(figureBoarded&&trainGrp){ trainGrp.userData.arriving=true; trainGrp.position.x=800+14; setObjective("<b>Board the train.</b>"); }
+}
+/* ambient beds are started by travel callbacks, so a load has to restart the right one */
+function syncAudioToZone(){ try{
+  AU.sirenStop(); AU.tenantsStop(); AU.trainStop(); AU.stationStop(); AU.windStop();
+  if(curZone==="arrival"||curZone==="metro")AU.stationStart();
+  if(curZone==="street"||curZone==="terrace")AU.windStart();
+  if(curZone==="floor21")AU.tenantsStart();
+  if(curZone==="alley"&&GS.alley2)AU.sirenStart();
+}catch(e){} }
+
 /* shared bring-up: fade the title out, unlock the fader, start the clock, lock the pointer */
 function enterPlayMode(){
-  AU.init(); $("title").style.opacity=0; setTimeout(()=>$("title").style.display="none",1400);
+  AU.init(); $("title").style.opacity=0; later(()=>$("title").style.display="none",1400);
   running=true; startTime=performance.now();
-  setTimeout(()=>{ $("fader").style.opacity=0; },300);
+  later(()=>{ $("fader").style.opacity=0; },300);
   requestGameLock();
 }
 
+/* dreams, the chase and choice screens are scripted beats that can't be resumed mid-way */
+function canSaveNow(){ return running&&!GS.chase&&curZone!=="dream1"&&curZone!=="dream2"; }
 async function doSave(slot){
+  if(!canSaveNow()){ toast("Not here. He can't hold on to anything in a dream."); return; }
   const s=captureState(); s.slot=slot;
   const ok=await idbPut(s);
   toast(ok?("Saved — slot "+slot):"Save failed — this browser may be blocking local storage");
   if(ok)renderPauseSlots();
 }
+const RESUME_KEY="noirResumeSlot";
 async function doLoad(slot){
   const s=await idbGet(slot);
   if(!s){ toast("Nothing saved there."); return; }
+  // Loading over a game in progress: restart the page and resume into the slot,
+  // so no opened crate, moved prop or half-run sequence leaks into the loaded game.
+  if(running){ try{ sessionStorage.setItem(RESUME_KEY,String(slot)); location.reload(); return; }catch(e){} }
   const wasTitle=$("title").style.display!=="none";
   closePause();
   if(wasTitle) enterPlayMode();
@@ -2982,6 +3062,7 @@ let pauseFromTitle=false;
 function openPause(fromTitle){
   pauseFromTitle=fromTitle;
   uiOpen="pause"; document.exitPointerLock?.();
+  pauseGameTimers(); if(!fromTitle)try{ AU.ctx&&AU.ctx.suspend(); }catch(e){}
   $("pauseTitle").textContent=fromTitle?"LOAD GAME":"PAUSED";
   $("pauseResume").style.display=fromTitle?"none":"block";
   $("pauseBack").textContent=fromTitle?"CANCEL":"BACK TO TITLE";
@@ -2989,26 +3070,30 @@ function openPause(fromTitle){
   renderPauseSlots();
   $("pauseOverlay").classList.add("show");
 }
-function closePause(){ $("pauseOverlay").classList.remove("show"); if(uiOpen==="pause")uiOpen=null; }
+function closePause(){ $("pauseOverlay").classList.remove("show"); if(uiOpen==="pause")uiOpen=null;
+  resumeGameTimers(); try{ AU.ctx&&AU.ctx.resume(); }catch(e){} }
 $("pauseResume").onclick=()=>{ closePause(); relock(); };
 $("pauseBack").onclick=()=>{
   if(pauseFromTitle){ closePause(); uiOpen=null; return; }
   if($("pauseBack").dataset.arm){ location.reload(); return; }
   $("pauseBack").dataset.arm="1"; $("pauseBack").textContent="CONFIRM — QUIT?";
-  setTimeout(()=>{ $("pauseBack").dataset.arm=""; $("pauseBack").textContent="BACK TO TITLE"; },3000); };
+  uiTimeout(()=>{ $("pauseBack").dataset.arm=""; $("pauseBack").textContent="BACK TO TITLE"; },3000); };
 $("menuToggle").onclick=()=>{ if(!uiOpen&&running)openPause(false); };
 $("continueBtn").onclick=()=>openPause(true);
-idbGetAll().then(all=>{ if(all.length)$("continueBtn").classList.remove("hide"); });
+let resumePending=false;
+idbGetAll().then(all=>{ if(all.length&&!resumePending)$("continueBtn").classList.remove("hide"); });
 
 /* ── landing front page: PLAY reveals the title screen ── */
 { const dismiss=()=>{ $("landing").classList.add("gone"); };
   $("ldPlay1").onclick=dismiss; $("ldPlay2").onclick=dismiss;
   $("ldMore").onclick=()=>$("ldFile").scrollIntoView({behavior:"smooth"});
   $("ldContinue").onclick=()=>{ dismiss(); openPause(true); };
-  idbGetAll().then(all=>{ if(all.length)$("ldContinue").style.display="inline-block"; }); }
+  idbGetAll().then(all=>{ if(all.length)$("ldContinue").style.display="inline-block"; });
+  // arriving from an in-game LOAD: skip the landing page, one click resumes the slot
+  let pending=null; try{ pending=sessionStorage.getItem(RESUME_KEY); sessionStorage.removeItem(RESUME_KEY); }catch(e){}
+  if(pending){ resumePending=true; const slot=pending==="auto"?"auto":+pending; dismiss();
+    $("startBtn").textContent="RESUME"; $("continueBtn").classList.add("hide");
+    $("startBtn").onclick=()=>doLoad(slot); } }
 
 
 tick();
-
-/* first knock objective hint */
-setTimeout(()=>{},0);
