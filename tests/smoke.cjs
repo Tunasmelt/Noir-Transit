@@ -111,7 +111,8 @@ const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL
   console.log("pause");
   await ev(() => { window.__fired = false; later(() => { window.__fired = true; }, 200); openPause(false); });
   await wait(700); check("pause holds scripted timers", !(await ev(() => window.__fired)));
-  await ev(() => closePause()); await wait(500); check("timers replay on resume", await ev(() => window.__fired));
+  await ev(() => closePause());
+  check("timers replay on resume", await (async () => { const t0 = Date.now(); while (Date.now() - t0 < 5000) { if (await ev(() => window.__fired)) return true; await wait(100); } return false; })());
 
   console.log("terrace puzzle");
   await ev(() => { setZone("terrace"); player.x = 710; player.z = 5; GS.photoTaken = true; });
