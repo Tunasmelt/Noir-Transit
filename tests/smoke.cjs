@@ -54,7 +54,7 @@ const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL
   await use("Knock on 8007"); check("8007 opens on a knock", await until(() => door8007Open, 3000));
   await use("Eileen's landline"); await ev(() => { dialed = "111111111"; }); await page.click("#dialCall"); await wait(200);
   check("wrong number is refused", await ev(() => !puzzleSolved && uiOpen === "dial"));
-  await ev(() => { dialed = CFG.code; }); await page.click("#dialCall"); await wait(1800);
+  await ev(() => { dialed = CFG.code; }); await page.click("#dialCall"); await until(() => ixPiece.enabled && ixKey.enabled, 20000);
   check("right number drops the piece and key", await use("Take Puzzle Piece #1") && await use("Take the Old Restock key") && await ev(() => GS.elevG && inv.has("key_restock")));
   const lift = async label => { await use("Call the elevator") || await use("Elevator"); await wait(200);
     await ev(l => [...document.querySelectorAll("#elevBtns button")].find(b => b.textContent.startsWith(l)).click(), label); };
@@ -81,7 +81,7 @@ const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL
   console.log("ending A");
   for (const n of [2, 1, 3]) await ev(n => turnValve(valves.find(v => v.userData.idx === n)), n);
   for (const n of [2, 1, 3, 4]) await ev(n => strikeNode(nodes.find(v => v.userData.idx === n)), n);
-  await wait(5600); await use("Take Puzzle Piece #3");
+  await until(() => piece3Mesh.userData.ix3.enabled, 40000); await use("Take Puzzle Piece #3");
   check("taking piece 3 turns the camera to the lit ledge", await ev(() => cine.active && GS.ledgeOn && ledgeLamp.l.intensity > 1));
   check("control returns after the reveal", await until(() => !cine.active && !player.seated, 120000));
   check("ledge offers the choice", await use("The ledge") && await ev(() => uiOpen === "choice"));
@@ -126,20 +126,20 @@ const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL
   await ev(() => strikeNode(nodes.find(v => v.userData.idx === 4)));
   check("first chime mistake does not give the answer", !/meter first/i.test(await sub()));
   for (const n of [2, 1, 3, 4]) await ev(n => strikeNode(nodes.find(v => v.userData.idx === n)), n);
-  await wait(5600);
+  await until(() => piece3Mesh.userData.ix3.enabled, 40000);
   check("music box drops piece 3", await use("Take Puzzle Piece #3") && await ev(() => GS.ledgeOn && inv.has("piece3")));
-  await ev(() => { cine.t = 99; }); await wait(400);
+  await ev(() => { cine.t = 99; }); await until(() => !cine.active && !player.seated, 10000);
 
   console.log("ending B route");
   await ev(() => { ["piece1", "piece2"].forEach(x => give(x, "🧩", x)); give("photo", "🖼", "THE PHOTO"); startEndingB(); });
-  await use("Back inside"); await wait(1200);
-  check("terrace door returns to floor 8", await ev(() => curZone === "floor8"));
+  await use("Back inside");
+  check("terrace door returns to floor 8", await until(() => curZone === "floor8" && !travelLock, 20000));
   await use("A frame, face-down");
   check("four pieces assemble the safe key", await until(() => GS.safeKey && inv.has("key_safe"), 20000));
   await use("Eileen's safe");
   check("safe opens the metro", await until(() => GS.metroOpen, 40000)); await ev(() => { if (uiOpen === "note") closeNote(); });
-  await use("Call the elevator"); await wait(1200);
-  check("lift lets out onto the street", await ev(() => curZone === "street"));
+  await use("Call the elevator");
+  check("lift lets out onto the street", await until(() => curZone === "street" && !travelLock, 20000));
 
   console.log("save / load");
   await ev(() => autosaveCheckpoint()); await wait(400);
