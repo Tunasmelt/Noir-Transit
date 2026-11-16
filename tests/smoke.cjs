@@ -40,6 +40,9 @@ const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL
 
   console.log("first half, played in order");
   const until = async (f, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await ev(f)) return true; await wait(250); } return false; };
+  check("opening: seated on a moving train, doors shut", await ev(() => ride.active && player.seated && arrTrain.position.x < 880 && arrDoors[1].userData.dl.position.x > -.3));
+  check("ride ends stopped at the platform, on foot in the open doorway", await until(() => !ride.active && !player.seated && arrTrain.position.x === 911 && arrDoors[1].userData.dl.position.x < -.8 && player.floorY > .5, 180000));
+  await ev(() => { player.z = 5.2; }); await wait(400);
   check("arrival → street", await use("Up to the street") && await until(() => curZone === "street" && !travelLock, 4000));
   await use("Home");
   check("front door → dream 1, on foot", await until(() => curZone === "dream1" && !player.seated, 8000));
@@ -84,7 +87,9 @@ const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL
   console.log("second half, fresh session");
   await page.evaluate(() => new Promise(r => { const q = indexedDB.deleteDatabase("noirTransitSaves"); q.onsuccess = q.onerror = q.onblocked = () => r(); }));
   await page.goto(url); await wait(1500);
-  await page.click("#ldPlay1"); await wait(500); await page.click("#startBtn"); await wait(2000);
+  await page.click("#ldPlay1"); await wait(500); await page.click("#startBtn"); await wait(2500);
+  await ev(() => { keys.KeyE = true; }); await wait(400);
+  check("E skips the ride", await ev(() => !ride.active && !player.seated && curZone === "arrival"));
 
   console.log("zones");
   for (const z of ["arrival", "street", "dream1", "floor8", "lobbyG", "alley", "restock", "dream2", "floor21", "terrace", "metro"]) {

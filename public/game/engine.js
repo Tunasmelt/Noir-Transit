@@ -1191,13 +1191,85 @@ const ixStand={enabled:false};
 setObjective("…");
 function beginGame(){
   enterPlayMode();
+  startRide();
+}
+/* beat 0 — the ride in. Thomas is the last passenger on the last train: seated, the tunnel
+   going by, his eyes moving over an empty carriage. The train then really does pull into the
+   station (it is driven along the platform), the doors open, and control begins in the doorway. */
+const ride={active:false,t:0,scroll:0,skipAt:0,fx:null,wall:null,lamps:[],glow:null,stopped:false,done:false};
+const RIDE_KEYS=[[0,0,0],[4,.15,-.02],[7.5,1.15,-.05],[11,1.25,.02],[14.5,-1.1,-.04],[17,-1.2,.02],[19.5,-.25,-.78],[22,-.2,-.72],[24.5,0,-.05],[40,0,0]];
+const RIDE_BRAKE=21, RIDE_DIST=55, RIDE_SPEED=14, RIDE_T=2*RIDE_DIST/RIDE_SPEED;   // constant-deceleration stop
+function buildRideFx(){ if(ride.fx)return; const g=ride.fx=new THREE.Group();
+  { const st=document.createElement("style"); st.textContent=`
+      .cineBar{position:fixed;left:0;right:0;height:0;background:#000;z-index:42;transition:height 1.2s ease;pointer-events:none} #cineTop{top:0} #cineBot{bottom:0}
+      html.cine .cineBar{height:11vh}
+      html.cine #inv,html.cine #battery,html.cine #objective,html.cine #journalHint,html.cine #prompt,html.cine #toast{opacity:0!important}
+      html.cine #subtitle{bottom:13vh}
+      #cineSkip{position:fixed;right:18px;bottom:3.4vh;z-index:43;font:10px "Courier New",monospace;letter-spacing:3px;color:#8a9488;opacity:0;transition:opacity .8s;pointer-events:auto;cursor:pointer}
+      html.cine #cineSkip.on{opacity:.8}`; document.head.appendChild(st);
+    for(const id of["cineTop","cineBot"]){ const d=document.createElement("div"); d.id=id; d.className="cineBar"; document.body.appendChild(d); }
+    const sk=document.createElement("div"); sk.id="cineSkip"; sk.textContent="E · SKIP"; sk.onclick=()=>{ if(ride.active&&!ride.done)finishRide(); }; document.body.appendChild(sk); }
+  // what he sees when he looks down: his coat, his hands' worth of paper bag
+  { const lap=ride.lap=new THREE.Group(), coat=lam(0x23262a);
+    for(const sx of[-.13,.13]){ put(lap,box(.17,.13,.5,coat),sx,0,-.2,0,0,0); put(lap,box(.15,.42,.14,coat),sx,-.2,-.47); }
+    put(lap,box(.2,.2,.09,lam(0xb8b0a0)),.02,.15,-.2,-.25,.2,0); put(lap,box(.2,.03,.09,lam(0x9a9284)),.02,.26,-.22,-.25,.2,0);   // the pharmacy bag, gone soft
+    put(lap,box(.56,.3,.16,coat),0,.12,.06,.2);                                                                                  // coat front
+    lap.position.set(-4,1.0,.36); lap.visible=false; arrTrain.add(lap); }
+  const wt=tex((c,s)=>{ c.fillStyle="#0c0e10"; c.fillRect(0,0,s,s); for(let x=0;x<s;x+=32){ c.fillStyle="#14171a"; c.fillRect(x,0,5,s); }
+    c.fillStyle="#1c2024"; c.fillRect(0,s*.3,s,3); c.fillRect(0,s*.36,s,2); c.fillRect(0,s*.72,s,5); grime(c,s,18,.5); speck(c,s,90,"rgba(70,76,80,.5)"); },128);
+  wt.repeat.set(10,1); ride.wall=new THREE.Mesh(new THREE.PlaneGeometry(64,3.6),new THREE.MeshBasicMaterial({map:wt,fog:false})); ride.wall.position.set(0,1.5,-2.0); g.add(ride.wall);
+  for(let i=0;i<8;i++){ const l=box(1.1,.12,.04,new THREE.MeshBasicMaterial({color:0xffdca8,fog:false})); l.position.set(0,1.82,-1.96); g.add(l); ride.lamps.push(l); }
+  ride.glow=new THREE.PointLight(0xffd0a0,0,6.5,1.5); g.add(ride.glow);
+  g.visible=false; _sceneAdd(g); }
+function startRide(){
+  buildRideFx(); setZone("arrival");
+  Object.assign(ride,{active:true,t:0,scroll:0,stopped:false,done:false,skipAt:performance.now()+1500});
+  player.seated=true; canStand=false; player.yaw=0; player.pitch=0; torchOn=false; keys.KeyE=false;
+  setArrDoor(0); setObjective("…"); ride.lap.visible=true; document.documentElement.classList.add("cine"); $("cineSkip").classList.remove("on");
+  try{ AU.trainStart(); }catch(e){}
+  $("fader").style.transition="opacity 2400ms"; later(()=>{ $("fader").style.opacity=0; },350);
+  later(()=>say(null,"The last train of the night. Eleven stops, and he has been its only passenger for nine of them.",5600),1200);
+  later(()=>say(null,"Empty seats, each one still holding the shape of someone who got off.",4600),7800);
+  later(()=>say(null,"A year since Eileen. He still rides the line that runs under her street.",4800),13400);
+  later(()=>say("THOMAS","A prescription. A set of keys. Nothing else in these pockets worth the name.",4400),18800);
+  later(()=>{ try{ AU.trainStop(); AU.trainArrive(); AU.stationStart(); }catch(e){} say(null,"Haldane. End of the line.",3600); },RIDE_BRAKE*1000+1500);
+  rideTick(0);
+}
+function rideTick(dt){ if(!ride.active)return; ride.t+=dt; const t=ride.t;
+  if(!ride.done&&keys.KeyE&&performance.now()>ride.skipAt){ keys.KeyE=false; finishRide(); return; }
+  // where the train is: cruising deep in the tunnel, then one constant-deceleration stop at the platform
+  const u=Math.max(0,Math.min(1,(t-RIDE_BRAKE)/RIDE_T)), v=t<RIDE_BRAKE?RIDE_SPEED:RIDE_SPEED*(1-u);
+  arrTrain.position.x=911-RIDE_DIST*(1-u)*(1-u); ride.scroll+=v*dt;
+  // his seat, and a little of the ride in his spine
+  const jolt=Math.sin(t*9.1)*.004+Math.sin(t*23)*.002*(v/RIDE_SPEED);
+  seatPos={x:arrTrain.position.x-4,y:.58+1.08+jolt*(v>0?1:0),z:7.3+.36}; player.x=seatPos.x; player.z=seatPos.z;
+  // where he looks
+  let k=0; while(k<RIDE_KEYS.length-2&&t>RIDE_KEYS[k+1][0])k++;
+  const A=RIDE_KEYS[k],B=RIDE_KEYS[k+1], f=Math.max(0,Math.min(1,(t-A[0])/(B[0]-A[0]))), e=f*f*(3-2*f);
+  player.yaw=A[1]+(B[1]-A[1])*e+Math.sin(t*.7)*.015; player.pitch=A[2]+(B[2]-A[2])*e;
+  // the tunnel going by, until the station takes over
+  const g=ride.fx; g.visible=seatPos.x<897; g.position.set(seatPos.x,0,7.3);
+  ride.wall.material.map.offset.x=(ride.scroll/6.4)%1;
+  ride.lamps.forEach((l,i)=>{ l.position.x=((i*8-ride.scroll)%64+64)%64-32; });
+  const near=ride.lamps.reduce((a,l)=>Math.abs(l.position.x)<Math.abs(a.position.x)?l:a); ride.glow.position.set(near.position.x,2.0,-1.3);
+  ride.glow.intensity=g.visible?1.5*Math.max(0,1-Math.abs(near.position.x)/5):0;
+  // stopped: chime, doors, and he is on his feet in the doorway
+  if(u>=1&&!ride.stopped){ ride.stopped=true; ride.t0=t; try{ AU.doorChime(); }catch(e){} }
+  if(ride.stopped){ setArrDoor(Math.min(1,Math.max(0,(t-ride.t0-.7)/1.1))); if(t-ride.t0>2.4&&!ride.done){ ride.done=true; fadeTo(()=>finishRide(),500); } }
+  $("cineSkip").classList.toggle("on",performance.now()>ride.skipAt&&!ride.stopped);
+}
+function finishRide(){
+  ride.active=false; ride.done=true; clearGameTimers(); if(ride.fx)ride.fx.visible=false;
+  ride.lap.visible=false; document.documentElement.classList.remove("cine");
+  arrTrain.position.x=911; setArrDoor(1); $("subtitle").innerHTML=""; $("fader").style.opacity=0; travelLock=false;
+  try{ AU.trainStop(); AU.stationStart(); }catch(e){}
   startArrival();
 }
 /* beat 1 — arrival: the last train pulls in, doors open, step onto the platform */
 function startArrival(){
-  setZone("arrival"); player.seated=false; canStand=true; player.floorY=0;
-  player.x=911; player.z=4.4; player.yaw=Math.PI/2; player.pitch=0;   // facing the open train doors
-  try{ AU.stationStart(); AU.trainArrive(); }catch(e){}
+  setZone("arrival"); player.seated=false; canStand=true;
+  player.x=911; player.z=6.5; player.floorY=.58; player.yaw=0; player.pitch=0;   // on his feet in the open doorway, platform ahead
+  try{ AU.stationStart(); }catch(e){}
   say(null,"The last train. It lets him out into a station the colour of an old bruise. Nobody else gets off.",6200);
   setObjective("Step off the train. <b>Find the way up to the street.</b>");
   // doors are already open on arrival; close them a beat after the player would step off
@@ -1575,7 +1647,7 @@ function dressTrain(g,o){ const dk=lam(0x23292d), roofM=lam(0x3a4246), hz=o.hz, 
       for(const wx of[-.6,.6])for(const sz of[-1,1]){ put(g,rod(.3,.3,.14,12,M.rubber),x+wx,-.08,sz*(hz-.3),Math.PI/2);
         put(g,rod(.14,.14,.15,8,M.metal),x+wx,-.08,sz*(hz-.3),Math.PI/2); } }
     put(g,box(o.carLen*.36,.3,hz*1.2,dk),cx,.04,0);                                                      // underfloor equipment case
-    put(g,box(o.carLen,.05,.04,M.chrome),cx,2.02,-(hz+.03)); put(g,box(o.carLen,.07,.05,dk),cx,.98,-(hz+.035));   // cant rail, rub rail
+    put(g,box(o.carLen,.05,.04,dk),cx,2.1,-(hz+.03)); put(g,box(o.carLen,.07,.05,dk),cx,.98,-(hz+.035));   // cant rail, rub rail
   }
   for(let i=0;i<o.cars.length-1;i++)put(g,box(o.cars[i+1]-o.cars[i]-o.carLen+.12,1.95,hz*1.45,M.rubber),(o.cars[i]+o.cars[i+1])/2,1.3,0);   // gangway bellows
   // cab ends: leading (-x) shows white, trailing (+x) shows red
@@ -1590,7 +1662,7 @@ function dressTrain(g,o){ const dk=lam(0x23292d), roofM=lam(0x3a4246), hz=o.hz, 
     put(g,box(.3,.16,.3,dk),x+dir*.24,.42,0); put(g,box(.2,.5,hz*1.7,dk),x+dir*.1,.3,0);                  // coupler, buffer beam
   }
   // interior
-  for(const dx of o.doors)for(const sx of[-.6,.6])put(g,rod(.018,.018,1.78,6,M.chrome),dx+sx,1.5,-hz+.42);
+  for(const dx of o.doors)for(const sx of[-.6,.6])put(g,rod(.018,.018,1.78,6,M.metal),dx+sx,1.5,-hz+.42);
   for(const sx of o.seats){ put(g,box(1.36,.44,.07,lam(0x3c444c)),sx,o.seatY+.3,o.seatZ+.22,-.12); put(g,box(.04,.3,.42,dk),sx-.68,o.seatY+.12,o.seatZ); put(g,box(.04,.3,.42,dk),sx+.68,o.seatY+.12,o.seatZ); }
   for(const cx of o.cars){ put(g,rod(.014,.014,o.carLen-.8,5,M.chrome),cx,2.16,-.1,0,0,Math.PI/2);
     for(let x=cx-o.carLen/2+.8;x<cx+o.carLen/2-.6;x+=.7)put(g,box(.03,.2,.015,lam(0x8a8478)),x,2.05,-.1,(x*7%1-.5)*.3); }   // straps, some still swinging
@@ -1599,6 +1671,7 @@ function dressTrain(g,o){ const dk=lam(0x23292d), roofM=lam(0x3a4246), hz=o.hz, 
 /* ════════ ZONE: STREET (beat 4 + Ending B exit) ════════ */
 /* ════════ ZONE: ARRIVAL — the last train in (opening) ════════ */
 let arrTrain=null, arrDoors=[];
+function setArrDoor(k){ const d=arrDoors[1]; if(!d)return; d.userData.dl.position.x=-.27-k*.56; d.userData.dr.position.x=.27+k*.56; }
 inZone("arrival",()=>{
   const ox=900;
   // platform floor (player side) + track pit
@@ -1660,32 +1733,50 @@ inZone("arrival",()=>{
   arrTrain.add(car);
   const skirt=box(22,.5,1.72,surf(TEX.metroMetal,22,.5,1.2,0x343c42)); skirt.position.set(0,.35,0); arrTrain.add(skirt);
   const stripe=box(22,.18,.06,new THREE.MeshLambertMaterial({color:0x2a4a7a})); stripe.position.set(0,1.05,-.87); arrTrain.add(stripe);
-  // lit windows
-  const winM=new THREE.MeshBasicMaterial({color:0x223038});
-  const doorXs=[-7,0,7];
+  // Glazing you can see through, with body pillars between the openings. The old flat dark
+  // panels made the side read as one slab; now the lit, empty interior shows from the platform.
+  const winM=new THREE.MeshBasicMaterial({color:0x7896a4,transparent:true,opacity:.1,depthWrite:false});
+  const doorXs=[-7,0,7]; const openings=doorXs.map(dx=>[dx-.56,dx+.56]);
   for(let i=-9;i<=9;i++){
     const wx=i*1.05;
     if(doorXs.some(dx=>Math.abs(wx-dx)<1.05))continue;
-    const w=box(.7,.6,.025,winM); w.position.set(wx,1.7,-.87); arrTrain.add(w);
-    const sill=box(.76,.035,.035,M.metalDark); sill.position.set(wx,1.34,-.9); arrTrain.add(sill);
+    const w=box(.7,.6,.02,winM); w.position.set(wx,1.7,-.82); arrTrain.add(w); openings.push([wx-.35,wx+.35]);
+    for(const [fy,fh] of[[2.02,.05],[1.38,.05]]){ const fr=box(.76,fh,.04,M.metalDark); fr.position.set(wx,fy,-.88); arrTrain.add(fr); }
+    for(const fx of[-.365,.365]){ const fr=box(.035,.66,.04,M.metalDark); fr.position.set(wx+fx,1.7,-.88); arrTrain.add(fr); }
   }
+  openings.sort((p,q)=>p[0]-q[0]); { let cur=-11;
+    for(const [o0,o1] of openings.concat([[11,11]])){ if(o0-cur>.02){ const pil=box(o0-cur,.98,.12,carM); pil.position.set((cur+o0)/2,1.46,-.82); arrTrain.add(pil); } cur=Math.max(cur,o1); } }
+  for(const [o0,o1] of openings)if(o1-o0<1){ const lower=box(o1-o0,.4,.12,carM); lower.position.set((o0+o1)/2,1.18,-.82); arrTrain.add(lower); }   // panel under each window
   const cabFloor=box(22,.08,1.45,surf(TEX.metroFloor,22,1.45,1.1)); cabFloor.position.set(0,.58,.02); arrTrain.add(cabFloor);
   const cabCeil=box(22,.08,1.42,surf(TEX.metroMetal,22,1.42,2.2,0x4b555a)); cabCeil.position.set(0,2.48,.02); arrTrain.add(cabCeil);
   const cabWall=box(21.7,1.65,.08,surf(TEX.metroMetal,21.7,1.65,2.0,0x4e585d)); cabWall.position.set(0,1.48,.72); arrTrain.add(cabWall);
   for(const x of[-8,-4,0,4,8]){ const seat=box(1.35,.12,.42,new THREE.MeshLambertMaterial({color:0x47525a})); seat.position.set(x,.85,.42); arrTrain.add(seat); }
   const cabLight=box(18,.035,.16,new THREE.MeshBasicMaterial({color:0xd7d1ad})); cabLight.position.set(0,2.42,-.15); arrTrain.add(cabLight);
   const cabGlow=new THREE.PointLight(0xb7c9bd,.55,5,1.8); cabGlow.position.set(0,1.9,-.35); arrTrain.add(cabGlow);
-  // three door bays (dark gaps that "open")
+  // far-side windows (black tunnel glass), advert cards and a line map, so the carriage reads from inside
+  for(let i=-9;i<=9;i++){ const wx=i*1.05; const fw=box(.74,.62,.02,new THREE.MeshBasicMaterial({color:0x05080b})); fw.position.set(wx,1.7,.675); arrTrain.add(fw);
+    const fr=box(.8,.04,.03,M.metalDark); fr.position.set(wx,1.38,.67); arrTrain.add(fr); }
+  { const ads=tex((g,s)=>{ const cols=["#3a4a3c","#4a3a30","#30384a","#4a4430","#3c3040"]; for(let i=0;i<5;i++){ g.fillStyle=cols[i]; g.fillRect(i*s/5+2,0,s/5-4,s);
+        g.fillStyle="rgba(210,200,170,.55)"; g.fillRect(i*s/5+8,s*.25,s/5-18,s*.12); g.fillRect(i*s/5+8,s*.5,s/5-30,s*.08); } grime(g,s,10,.3); },128);
+    for(const [z,ry] of[[.67,Math.PI],[-.74,0]]){ const t=ads.clone(); t.needsUpdate=true; t.repeat.set(4,1);
+      const strip=new THREE.Mesh(new THREE.PlaneGeometry(21,.24),new THREE.MeshLambertMaterial({map:t})); strip.position.set(0,2.2,z); strip.rotation.y=ry; arrTrain.add(strip); }
+    const map=new THREE.Mesh(new THREE.PlaneGeometry(1.5,.34),new THREE.MeshBasicMaterial({map:tex((g,s)=>{ g.fillStyle="#d8d2c0"; g.fillRect(0,0,s,s); g.strokeStyle="#2a4a7a"; g.lineWidth=6;
+      g.beginPath(); g.moveTo(14,s/2); g.lineTo(s-14,s/2); g.stroke(); for(let i=0;i<11;i++){ g.fillStyle=i===10?"#a02a22":"#2a4a7a"; g.beginPath(); g.arc(14+i*(s-28)/10,s/2,i===10?9:6,0,7); g.fill(); }
+      g.fillStyle="#22201a"; g.font="bold 18px Courier New"; g.fillText("MERIDIAN LINE",14,s/2-22); g.fillText("HALDANE",s-104,s/2+34); },256)}));
+    map.material.map.repeat.set(1,.5); map.material.map.offset.set(0,.25); map.position.set(-2,2.2,.66); map.rotation.y=Math.PI; arrTrain.add(map); }
+  // three door bays. The middle one is the one he uses: shut for the ride, open at the platform.
   arrDoors=[];
   for(const dx of[-7,0,7]){ const dgroup=group();
-    const dl=box(.5,1.7,.05,M.metalDark); dl.position.set(-.28,1.15,-.87);
-    const dr=box(.5,1.7,.05,M.metalDark); dr.position.set(.28,1.15,-.87);
-    const gap=box(1.06,1.7,.02,new THREE.MeshBasicMaterial({color:0x05070a})); gap.position.set(0,1.15,-.9);
-    dgroup.add(gap); dgroup.add(dl); dgroup.add(dr);
-    const sill=box(1.0,.08,.16,M.metal); sill.position.set(0,.61,-.96); dgroup.add(sill);
+    const dl=box(.54,1.72,.05,lam(0x3a444a)); dl.position.set(-.27,1.16,-.86);
+    const dr=box(.54,1.72,.05,lam(0x3a444a)); dr.position.set(.27,1.16,-.86);
+    dgroup.add(dl); dgroup.add(dr);
+    const sill=box(1.1,.06,.2,M.metal); sill.position.set(0,.6,-.94); dgroup.add(sill);
+    const head=box(1.16,.08,.1,M.metalDark); head.position.set(0,2.06,-.88); dgroup.add(head);
     dgroup.position.set(dx,0,0);
     dgroup.userData.dl=dl; dgroup.userData.dr=dr; arrTrain.add(dgroup); arrDoors.push(dgroup); }
-  for(const d of arrDoors)for(const lf of[d.userData.dl,d.userData.dr])put(lf,box(.3,.55,.02,M.glassDark),0,.38,-.03);   // door glazing
+  for(const d of arrDoors)for(const lf of[d.userData.dl,d.userData.dr]){ put(lf,box(.32,.6,.012,winM),0,.36,-.032);            // door glazing
+    put(lf,box(.4,.03,.02,M.metalDark),0,.02,-.03); }
+  setArrDoor(1);
   dressTrain(arrTrain,{cars:[0],carLen:22,hz:.85,roofY:2.36,doors:[-7,0,7],seats:[-8,-4,0,4,8],seatY:.85,seatZ:.42,blind:"TERMINATES"});
   arrTrain.position.set(ox+11,0,7.3); scene.add(arrTrain);
   // Train collision follows the stationary arrival train, leaving a real
@@ -1695,11 +1786,11 @@ inZone("arrival",()=>{
   const trainInside=box(1.0,1.8,.7,new THREE.MeshBasicMaterial({visible:false,side:THREE.DoubleSide}));
   trainInside.position.set(ox+11,1.35,6.65); scene.add(trainInside);
   let ixTrainLeave=null;
-  interact(trainInside,"Enter the carriage",()=>{ player.x=ox+11; player.z=6.35; player.floorY=.58; player.yaw=Math.PI; if(ixTrainLeave)ixTrainLeave.enabled=true; say(null,"The carriage is warmer than the platform. Empty seats face the dark glass, each one holding the shape of someone who left.",4200); },{range:2.2});
+  const ixTrainIn=interact(trainInside,"Enter the carriage",()=>{ player.x=ox+11; player.z=6.35; player.floorY=.58; player.yaw=Math.PI; if(ixTrainLeave)ixTrainLeave.enabled=true; say(null,"The carriage is warmer than the platform. Empty seats face the dark glass, each one holding the shape of someone who left.",4200); },{range:2.2});
   const trainLeave=box(1.2,1.6,.25,new THREE.MeshBasicMaterial({visible:false,side:THREE.DoubleSide}));
   trainLeave.position.set(ox+11,.9,6.3); scene.add(trainLeave);
   ixTrainLeave=interact(trainLeave,"Step back onto the platform",()=>{ player.x=ox+11; player.z=5.9; player.floorY=0; player.yaw=0; ixTrainLeave.enabled=false; say(null,"The platform is colder. The train waits with its doors open.",2800); },{range:1.6});
-  ixTrainLeave.enabled=false;
+  ixTrainLeave.enabled=false; ixTrainIn.enabled=false;   // superseded: he starts aboard and the threshold is real floor
 
   // Exit is a flat station doorway now; there is no staircase in this level.
   { const threshold=box(.34,.05,2.2,new THREE.MeshLambertMaterial({color:0x4a514c})); threshold.position.set(ox+21.95,.025,3.4); scene.add(threshold);
@@ -1718,7 +1809,7 @@ inZone("arrival",()=>{
   // Keep the visible treads and player grounding on the same discrete profile.
   // The carriage floor is also a real walkable surface when the player enters it.
   ZONES.arrival.ground=(x,z)=>{
-    if(z>=6.05&&z<=6.92&&x>=ox+1.0&&x<=ox+21.0)return .58;
+    if(z>=6.05&&z<=7.3&&x>=ox+1.0&&x<=ox+21.0)return .58;
     return 0;
   };
 });
@@ -2956,7 +3047,7 @@ const fxPulse=[];   // {light, base, amp, speed, phase}: slow breathing lights, 
 inZone("arrival",()=>{ const ox=900;
   wetGround("arrival",.22,18);
   pl(0xe8a858,1.25,8,ox+21.7,2.2,3.4);                                  // WAY OUT: sodium spill from the stairs
-  for(const x of[ox+3.5,ox+11,ox+18.5])pl(0xa8c8dc,.75,5.5,x,1.95,7.4); // the carriage is still lit, and empty
+  for(const x of[-7.5,-2.5,2.5,7.5]){ const L=new THREE.PointLight(0xc4d6d0,.95,6,1.5); L.position.set(x,2.15,-.1); arrTrain.add(L); }   // the carriage is still lit, and empty
   const fx=fixturesOf("arrival"); if(fx[1])flickers.push(fx[1]);        // one tube is dying
   for(let x=ox+1.2;x<ox+22;x+=3.4){ const b=box(.3,.26,4.8,lam(0x6a6e6a)); b.position.set(x,3.07,3.6); scene.add(b); }   // downstand beams
   { const cop=box(23,.07,.34,lam(0x8a8c86)); cop.position.set(ox+11,.036,5.86); scene.add(cop); }                     // platform coping
@@ -3157,7 +3248,7 @@ function dbgFlag(id,key,lbl,after){ dbgBtn(id,()=>{ DBG[key]=!DBG[key];
 function toggleDebug(){ if(!DEBUG_ENABLED)return; DBG.open=!DBG.open; $("dbgPanel").classList.toggle("show",DBG.open);
   if(DBG.open){ uiOpen="debug"; document.exitPointerLock?.(); }
   else if(uiOpen==="debug"){ uiOpen=null; relock(); } }
-function dbgEnsureRunning(){ if(!running&&$("title").style.display!=="none"){ beginGame(); } }
+function dbgEnsureRunning(){ if(!running&&$("title").style.display!=="none"){ beginGame(); } if(ride.active)finishRide(); }
 function dbgSkipIntro(){
   dbgEnsureRunning();
   GS.dream1Done=true; setZone("floor8");
@@ -3295,6 +3386,7 @@ function tick(){
   requestAnimationFrame(tick);
   const rawDt=Math.min(.05,clock.getDelta()); const t=clock.elapsedTime;
   const dt=(uiOpen==="pause"&&running)?0:rawDt;   // pause menu freezes the simulation
+  rideTick(dt);
 
   /* door open animation */
   if(door8001Open&&d8001.rotation.y> -1.9)d8001.rotation.y-=dt*2.2;
@@ -3390,8 +3482,8 @@ function tick(){
   }
   if(hit&&!player.seated){ $("prompt").style.opacity=1; $("promptText").textContent=hit.prompt;
     if(keys.KeyE){ keys.KeyE=false; usedMesh=hit.mesh; hit.fn(); } }
-  else $("prompt").style.opacity= player.seated&&running?1:0;
-  if(player.seated&&running)$("promptText").textContent="Stand";
+  else if(!ride.active)$("prompt").style.opacity= player.seated&&running&&canStand?1:0;
+  if(player.seated&&running&&canStand)$("promptText").textContent="Stand";
 
   /* render: scene → RT → post (or raw if debug) */
   if(DBG.raw){ renderer.setRenderTarget(null); renderer.render(scene,camera); }
@@ -3532,7 +3624,7 @@ function enterPlayMode(){
 }
 
 /* dreams, the chase and choice screens are scripted beats that can't be resumed mid-way */
-function canSaveNow(){ return running&&!GS.chase&&curZone!=="dream1"&&curZone!=="dream2"; }
+function canSaveNow(){ return running&&!ride.active&&!GS.chase&&curZone!=="dream1"&&curZone!=="dream2"; }
 async function doSave(slot){
   if(!canSaveNow()){ toast("Not here. He can't hold on to anything in a dream."); return; }
   const s=captureState(); s.slot=slot;
@@ -3558,7 +3650,7 @@ async function doDelete(slot){ await idbDelete(slot); renderPauseSlots(); }
 /* fired at every zone transition — skipped during scripted/dream sequences so a resume never
    lands mid-cutscene */
 function autosaveCheckpoint(){
-  if(!running||GS.chase||curZone==="dream1"||curZone==="dream2"||uiOpen)return;
+  if(!running||ride.active||GS.chase||curZone==="dream1"||curZone==="dream2"||uiOpen)return;
   const s=captureState(); s.slot="auto"; idbPut(s);
 }
 

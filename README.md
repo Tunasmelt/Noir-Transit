@@ -14,6 +14,7 @@ The visual style is a deliberate throwback: a low-resolution render target, Baye
 
 ### Features
 
+- **An opening ride-in** — the game begins seated on the last train, looking over an empty carriage as the tunnel goes by; the train pulls into the station, the doors open, and control starts in the doorway. `E` skips it.
 - **11 connected zones** — an arrival station, the street, two dream-corridor interludes, the 8th floor (two flats), the ground-floor lobby, the back alley, a restock room, the 21st floor, the roof terrace, and the metro platform — linked by travel triggers, an elevator, and stairwells.
 - **Per-pixel lit, low-res rendering** — every fixture in the world (tubes, sconces, street lamps, the generator's pilot light) casts a real pool of light, quantised and dithered down to 240 lines.
 - **A fully procedural soundscape** — every ambient and story sound is synthesized, not sampled, with a per-zone weighted scheduler so each space has its own character.
