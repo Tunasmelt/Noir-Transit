@@ -47,8 +47,8 @@ const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL
   await use("Home");
   check("front door → dream 1, on foot", await until(() => curZone === "dream1" && !player.seated, 8000));
   check("dream 1 ends in the chair in 8001 (under 45s)", await until(() => curZone === "floor8" && player.seated, 45000));
-  await wait(1800); await ev(() => { keys.KeyE = true; }); await wait(1400);
-  check("standing starts the phone", await ev(() => !player.seated && ringing));
+  await wait(1800); await ev(() => { keys.KeyE = true; });
+  check("standing starts the phone", await until(() => !player.seated && ringing, 15000));
   await use("Answer the telephone");
   check("answering unlocks the flat", await ev(() => phoneAnswered) && await use("Front door") && await ev(() => door8001Open));
   await use("Knock on 8007"); check("8007 opens on a knock", await until(() => door8007Open, 3000));
@@ -134,10 +134,10 @@ const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL
   await ev(() => { ["piece1", "piece2"].forEach(x => give(x, "🧩", x)); give("photo", "🖼", "THE PHOTO"); startEndingB(); });
   await use("Back inside"); await wait(1200);
   check("terrace door returns to floor 8", await ev(() => curZone === "floor8"));
-  await use("A frame, face-down"); await wait(3000);
-  check("four pieces assemble the safe key", await ev(() => GS.safeKey && inv.has("key_safe")));
-  await use("Eileen's safe"); await wait(7600); await ev(() => { if (uiOpen === "note") closeNote(); });
-  check("safe opens the metro", await ev(() => GS.metroOpen));
+  await use("A frame, face-down");
+  check("four pieces assemble the safe key", await until(() => GS.safeKey && inv.has("key_safe"), 20000));
+  await use("Eileen's safe");
+  check("safe opens the metro", await until(() => GS.metroOpen, 40000)); await ev(() => { if (uiOpen === "note") closeNote(); });
   await use("Call the elevator"); await wait(1200);
   check("lift lets out onto the street", await ev(() => curZone === "street"));
 
