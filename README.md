@@ -24,7 +24,11 @@ The visual style is a deliberate throwback: a low-resolution render target, Baye
 
 ### Controls
 
-`WASD` move · mouse look · `E` interact · `F` flashlight · `Tab` journal · `Esc` pause/save. Desktop with a mouse is required — there's no touch control scheme yet.
+`WASD` move · `Shift` run · mouse look · `E` interact · `F` flashlight · `Tab` journal · `Esc` pause/save.
+
+On a touch screen the game builds its own controls on first touch: a stick bottom-left, drag anywhere on the picture to look, and `USE`, `LIGHT` and `JOURNAL` buttons. Landscape works best.
+
+The pause menu has brightness, look-speed and volume sliders; they are remembered in the browser.
 
 ## Screenshots
 
@@ -75,6 +79,24 @@ You can preview the static build with any static file server, e.g.:
 npx serve out
 ```
 
+## Testing
+
+```bash
+npm run build
+```
+
+```bash
+npm run test:smoke
+```
+
+The smoke test serves `out/`, boots the game in headless Chromium and drives it through the engine's own functions: every zone ticks without errors, pause holds scripted timers, the terrace puzzles solve and their hints escalate, the ending B route runs through, and an in-game load resumes correctly. It needs a Chromium for Playwright:
+
+```bash
+npx playwright install chromium
+```
+
+GitHub Actions runs the build and this test on every pull request (`.github/workflows/ci.yml`).
+
 ## Deploying
 
 Because the build is a static export, you can deploy `out/` to essentially any static host:
@@ -95,6 +117,7 @@ NEXT_PUBLIC_BASE_PATH=/Noir-Transit npm run build
 - Save data uses IndexedDB in the browser and is per-origin, same as the original file. Saving is disabled during dream sequences, and loading a slot from inside a running game restarts the page and resumes into that slot.
 - The pause menu freezes the simulation, scripted timers and audio.
 - Lighting: all surfaces are authored as `MeshLambertMaterial`, which `engine.js` routes to a matte per-pixel material at startup (walls and floors are single quads, so vertex lighting could not show a light pool). `wetMat()` adds a specular sheen to rain-slick ground. Per-level lights and dressing live in the `ART PASS` section near the end of the zone builds.
+- The flashlight casts hard-edged shadows and is held at the hip rather than the eye, so they are visible. Doors swing (and lift doors part) under the fade when you travel through them.
 - Puzzle hints escalate: the valve and chime puzzles only state their answer after four failed attempts; before that they point at the notes that carry it.
 - The developer debug menu (teleports, noclip, puzzle skips) is off by default. Append `?debug` to the URL to enable it, then press `` ` `` or `F1`.
 - The picture is always 240 lines tall; the column count follows the window (320 at 4:3, 426 at 16:9, capped at 21:9) so pixels stay square.

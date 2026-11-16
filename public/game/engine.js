@@ -21,6 +21,10 @@ const $=id=>document.getElementById(id);
   THREE.MeshLambertMaterial=function(p){ const m=new Phong(p); m.specular.setHex(0x000000); m.shininess=1; return m; }; }
 function wetMat(m,amount=.5,shine=28){ m.specular.setScalar(amount); m.shininess=shine; return m; }
 
+/* ---------------- Player settings (pause menu; kept in localStorage) ---------------- */
+const SETTINGS=Object.assign({brightness:1,sens:1,volume:.8},(()=>{ try{ return JSON.parse(localStorage.getItem("noirSettings")||"{}"); }catch(e){ return {}; } })());
+function saveSettings(){ try{ localStorage.setItem("noirSettings",JSON.stringify(SETTINGS)); }catch(e){} }
+
 /* ---------------- Game timers ----------------
    Every scripted beat in the game goes through later()/cancelLater() so
    that (a) a timer that comes due while the pause menu is open is held and
@@ -57,7 +61,7 @@ const CFG={
 /* ---------------- Audio (procedural Web Audio) ---------------- */
 const AU={ctx:null,master:null,rain:null,ringTimer:null,
   init(){ if(this.ctx)return; const C=window.AudioContext||window.webkitAudioContext; this.ctx=new C();
-    this.master=this.ctx.createGain(); this.master.gain.value=.8; this.master.connect(this.ctx.destination); this.startRain(); },
+    this.master=this.ctx.createGain(); this.master.gain.value=SETTINGS.volume; this.master.connect(this.ctx.destination); this.startRain(); },
   noiseBuf(sec=2){ const b=this.ctx.createBuffer(1,this.ctx.sampleRate*sec,this.ctx.sampleRate); const d=b.getChannelData(0);
     for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1; return b; },
   startRain(){ const src=this.ctx.createBufferSource(); src.buffer=this.noiseBuf(3); src.loop=true;
@@ -238,8 +242,19 @@ let baseFogFar=CFG.fogFar;
 let travelLock=false;
 function fadeTo(cb,ms){ ms=ms||700; const f=$("fader"); f.style.transition=`opacity ${ms}ms`; f.style.opacity=1;
   later(()=>{ cb&&cb(); f.style.opacity=0; },ms+60); }
+/* The thing the player just used. If it was a door (or the lift), travel() opens
+   it under the fade, so a zone change reads as walking through rather than a cut. */
+let usedMesh=null; const swings=[];
+function swingTick(dt){ for(const s of swings){ s.t+=dt; const k=Math.min(1,s.t/.55), e=k*k*(3-2*k);
+  if(s.leaves){ s.leaves[0].position.x=s.base[0]-e*.52; s.leaves[1].position.x=s.base[1]+e*.52; }
+  else s.o.rotation.y=s.base-e*1.25; } }
 function travel(zone,x,z,yaw,cb){ if(travelLock)return; travelLock=true;
-  fadeTo(()=>{ setZone(zone); player.x=x; player.z=z; if(yaw!==undefined)player.yaw=yaw; player.pitch=0;
+  const used=usedMesh; usedMesh=null; let shut=null;
+  if(used&&used.userData.isDoor){ const base=used.rotation.y; swings.push({o:used,base,t:0}); try{AU.creak();}catch(e){}
+    shut=()=>{ used.rotation.y=base; }; }
+  else if(used&&used.userData.leaves){ const L=used.userData.leaves, base=[L[0].position.x,L[1].position.x]; swings.push({leaves:L,base,t:0});
+    shut=()=>{ L[0].position.x=base[0]; L[1].position.x=base[1]; }; }
+  fadeTo(()=>{ swings.length=0; shut&&shut(); setZone(zone); player.x=x; player.z=z; if(yaw!==undefined)player.yaw=yaw; player.pitch=0;
     player.floorY=(ZONES[zone].ground?ZONES[zone].ground(x,z):0)||0;
     travelLock=false; onZoneEnter[zone]&&onZoneEnter[zone](); cb&&cb(); autosaveCheckpoint(); },700); }
 /* scripted sequence runner: seq([[msFromPrev,fn],...]) */
@@ -253,10 +268,10 @@ const rt=new THREE.WebGLRenderTarget(CFG.RW,CFG.RH,{minFilter:THREE.NearestFilte
 const postScene=new THREE.Scene();
 const postCam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
 const postMat=new THREE.ShaderMaterial({
-  uniforms:{tDiffuse:{value:rt.texture},res:{value:new THREE.Vector2(CFG.RW,CFG.RH)},time:{value:0},dread:{value:0},levels:{value:CFG.posterize}},
+  uniforms:{tDiffuse:{value:rt.texture},res:{value:new THREE.Vector2(CFG.RW,CFG.RH)},time:{value:0},dread:{value:0},gain:{value:SETTINGS.brightness},levels:{value:CFG.posterize}},
   vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}`,
   fragmentShader:`
-    varying vec2 vUv; uniform sampler2D tDiffuse; uniform vec2 res; uniform float time,dread,levels;
+    varying vec2 vUv; uniform sampler2D tDiffuse; uniform vec2 res; uniform float time,dread,levels,gain;
     float B2(vec2 a){a=floor(a);return fract(a.x/2.+a.y*a.y*.75);}
     float B4(vec2 a){return B2(.5*a)*.25+B2(a);}
     float B8(vec2 a){return B4(.5*a)*.25+B4(a);}
@@ -269,7 +284,7 @@ const postMat=new THREE.ShaderMaterial({
       float d=B8(px);
       // quantise in sqrt space: the same number of levels, but spent where the
       // game lives (the darks), so shadows gradate instead of cross-hatching to black
-      c=sqrt(max(c*1.1+.004,0.));
+      c=sqrt(max(c*1.1*gain+.004*gain,0.));
       c=floor(c*(levels-1.)+d)/(levels-1.);
       c*=c;
       // color bleed with dread
@@ -579,7 +594,7 @@ function mkBicycle(){ const g=group(); const mm=new THREE.MeshLambertMaterial({c
   const hb=box(.045,.24,.045,mm); hb.position.set(.52,.72,0); g.add(hb);
   const hbt=box(.05,.045,.34,mm); hbt.position.set(.52,.85,0); g.add(hbt); return g; }
 function mkDoor(numTex){ // hinged door group; pivot at hinge
-  const g=new THREE.Group(); const dk=lam(0x2c1f12);
+  const g=new THREE.Group(); g.userData.isDoor=true; const dk=lam(0x2c1f12);
   put(g,box(.9,2.05,.06,new THREE.MeshLambertMaterial({map:TEX.doorWood})),.45,1.025,0);
   for(const y of[1.48,.62])put(g,box(.62,.7,.074,dk),.45,y,0);                              // two raised panels, both faces
   for(const y of[1.48,.62])put(g,box(.5,.58,.084,new THREE.MeshLambertMaterial({map:TEX.doorWood,color:0xb0a898})),.45,y,0);
@@ -640,7 +655,8 @@ function mkElevator(){ const g=group(); const frame=box(1.6,2.3,.14,M.metalDark)
   const dm=new THREE.MeshLambertMaterial({map:doorTex});
   const dl=box(.7,2.08,.06,dm); dl.position.set(-.37,1.05,.06); g.add(dl);
   const dr=box(.7,2.08,.06,dm); dr.position.set(.37,1.05,.06); g.add(dr);
-  const seam=box(.035,2.08,.07,M.black); seam.position.set(0,1.05,.065); g.add(seam);
+  g.userData.leaves=[dl,dr];
+  put(g,box(1.44,2.08,.01,M.black),0,1.05,.076);                                             // the dark of the car, behind the doors
   const sill2=box(1.5,.05,.22,M.metal); sill2.position.set(0,.025,.08); g.add(sill2);
   const dial=new THREE.Mesh(new THREE.CircleGeometry(.14,16,Math.PI*.15,Math.PI*.7),new THREE.MeshLambertMaterial({color:0x8a8064})); dial.position.set(0,2.42,.08); g.add(dial);
   const needle=box(.015,.12,.01,M.black); needle.position.set(-.04,2.44,.09); needle.rotation.z=.5; g.add(needle);
@@ -675,6 +691,13 @@ function mkFigure(){ const g=group(); const bk=M.black;
   for(let i=0;i<9;i++)put(g,box(.034,.5+Math.random()*.28,.03,bk),-.12+i*.03,1.5-Math.random()*.06,.115,-.06);
   for(let i=0;i<10;i++)put(g,box(.036,.8+Math.random()*.4,.035,bk),-.14+i*.031,1.3-Math.random()*.08,-.12,.1);
   for(const sx of[-1,1])put(g,box(.03,.62,.17,bk),sx*.125,1.42,0);
+  // She is pure black, so in a dark room she vanished. A cold halo behind her and a little
+  // light on the floor around her keep the silhouette legible without ever lighting HER.
+  const halo=new THREE.Mesh(new THREE.PlaneGeometry(1.5,2.6),new THREE.MeshBasicMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:.5,
+    map:tex((c,s)=>{ c.clearRect(0,0,s,s); const r=c.createRadialGradient(s/2,s*.45,4,s/2,s*.45,s*.5);
+      r.addColorStop(0,"rgba(120,150,190,.55)"); r.addColorStop(.5,"rgba(70,95,135,.2)"); r.addColorStop(1,"rgba(0,0,0,0)"); c.fillStyle=r; c.fillRect(0,0,s,s); },128)}));
+  put(g,halo,0,1.05,-.3);
+  const aura=new THREE.PointLight(0x7c96bc,.6,4.2,1.5); aura.position.set(0,1.0,-.5); g.add(aura);
   return g; }
 /* ============================================================
    WORLD BUILD
@@ -1132,7 +1155,7 @@ function relock(){
 }
 $("c").addEventListener("click",requestGameLock);
 addEventListener("mousemove",e=>{ if(!locked||uiOpen)return;
-  player.yaw-=e.movementX*.0022; player.pitch-=e.movementY*.0022;
+  player.yaw-=e.movementX*.0022*SETTINGS.sens; player.pitch-=e.movementY*.0022*SETTINGS.sens;
   player.pitch=Math.max(-1.45,Math.min(1.45,player.pitch)); });
 
 function collide(nx,nz){ const r=CFG.radius;
@@ -1146,6 +1169,11 @@ function collide(nx,nz){ const r=CFG.radius;
 const torch=new THREE.SpotLight(CFG.torch.color,0,CFG.torch.dist,CFG.torch.angle,.45,CFG.torch.decay);
 const torchTarget=new THREE.Object3D(); _sceneAdd(torch); _sceneAdd(torchTarget); torch.target=torchTarget;
 let torchOn=false, battery=100;
+// The torch is held at the hip, not at the eye, so the shadows it throws are visible beside
+// the things that cast them. Hard-edged on purpose: it suits the 240-line picture.
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.BasicShadowMap;
+torch.castShadow=true; torch.shadow.mapSize.set(512,512); torch.shadow.camera.near=.2; torch.shadow.camera.far=CFG.torch.dist;
+torch.shadow.bias=-.004; torch.shadow.normalBias=.03; torch.shadow.autoUpdate=false;
 function toggleTorch(){ if(battery<=0&&!torchOn){AU.rattle();say("THOMAS","Dead. Of course.");return;}
   torchOn=!torchOn; AU.burst(.03,2000,.15,4); }
 
@@ -1775,7 +1803,7 @@ inZone("street",()=>{
 function enterBuilding(){
   setObjective("…"); AU.doorHeavy(); AU.windStop();
   say(null,"The key. The stairs. The door. He gets exactly as far as the hallway light switch — and the floor comes up to meet him.",5200);
-  later(()=>fadeTo(()=>{ setZone("dream1"); player.seated=true; canStand=false;
+  later(()=>fadeTo(()=>{ setZone("dream1"); player.seated=false; canStand=false;
     seatPos={x:100,y:1.05,z:20}; player.x=100; player.z=20; player.yaw=0; player.pitch=0;
     dream1Sequence(); },1400),2400);
 }
@@ -2926,6 +2954,7 @@ inZone("dream1",()=>{ const ox=100;
   for(const g of gleams)g.material.opacity=.85;
   for(let i=-1;i<=1;i++){ const L=pl(0x3ad0c0,.9,5,ox+i*1.02,1.3,1.2); fxPulse.push({light:L,base:.9,amp:.45,speed:1.3,phase:i*1.7}); }
   for(const m of archGlass){ m.emissive.setHex(0x1a6a62); m.opacity=.8; }
+  addCollider(ox,10.4,3.4,.3,"dreamHold");   // he can walk the gallery, but not into what happens at the end of it
   // ceiling ribs marching to the vanishing point
   for(let z=1.5;z<24;z+=1.5){ const rib=box(3.2,.14,.1,lam(0xb4b6ba)); rib.position.set(ox,3.33,z); scene.add(rib); }
 });
@@ -3027,6 +3056,9 @@ inZone("metro",()=>{ const ox=800;
    were always meant to. The prop factories above are already tuned (decay<=1.5). */
 scene.traverse(o=>{ if(o.isPointLight&&o.decay>1.55){ o.intensity*=1.7; o.distance*=1.35; o.decay=1.5; } });
 
+/* everything lit can receive the torch's shadow; everything lit and solid can cast one */
+scene.traverse(o=>{ if(o.isMesh&&o.material&&o.material.isMeshPhongMaterial){ o.receiveShadow=true; if(!o.material.transparent)o.castShadow=true; } });
+
 /* after all builds: runtime scene.add goes to scene root */
 ZONE=null;
 
@@ -3118,6 +3150,61 @@ FLAGS ${DBG.noclip?"noclip ":""}${DBG.infBatt?"∞batt ":""}${DBG.fullbright?"br
 DOORS 8001:${door8001Open?"open":"shut"} 8007:${door8007Open?"open":"shut"}  PUZZLE:${puzzleSolved?"solved":"—"}`;
 }
 
+/* ---------------- Touch controls ----------------
+   Built on the first touch: a stick bottom-left, drag anywhere on the picture to look,
+   and three buttons. Overlays (notes, dial, lift, pause) already have tappable controls. */
+const touch={x:0,y:0,mag:0,on:false,ui:null};
+function initTouch(){ if(touch.on)return; touch.on=true; document.documentElement.classList.add("touch");
+  const st=document.createElement("style"); st.textContent=`
+    html.touch,html.touch body{touch-action:none;overscroll-behavior:none;-webkit-user-select:none;user-select:none}
+    #tUI{position:fixed;inset:0;z-index:60;pointer-events:none;font:11px "Courier New",monospace;letter-spacing:2px;color:#b8c4b0}
+    #tPad{position:absolute;left:22px;bottom:26px;width:132px;height:132px;border-radius:50%;border:1px solid rgba(184,196,176,.35);background:rgba(10,14,18,.35);pointer-events:auto}
+    #tNub{position:absolute;left:41px;top:41px;width:50px;height:50px;border-radius:50%;background:rgba(184,196,176,.4)}
+    .tBtn{position:absolute;min-width:74px;height:54px;line-height:54px;text-align:center;border:1px solid rgba(184,196,176,.4);background:rgba(10,14,18,.5);pointer-events:auto}
+    #tUse{right:22px;bottom:92px;color:#e8b060;border-color:rgba(232,176,96,.55)} #tLight{right:22px;bottom:26px} #tJrnl{right:22px;top:14px;height:40px;line-height:40px}
+    html.touch #menuToggle{bottom:auto;top:14px;right:110px;padding:13px 12px;font-size:11px} html.touch #journalHint{display:none} html.touch #battery{bottom:172px}`;
+  document.head.appendChild(st);
+  const mk=(id,cls,txt)=>{ const d=document.createElement("div"); d.id=id; if(cls)d.className=cls; if(txt)d.textContent=txt; return d; };
+  const ui=touch.ui=mk("tUI"), pad=mk("tPad"), nub=mk("tNub"), use=mk("tUse","tBtn","USE"), light=mk("tLight","tBtn","LIGHT"), jr=mk("tJrnl","tBtn","JOURNAL");
+  pad.appendChild(nub); ui.append(pad,use,light,jr); document.body.appendChild(ui);
+  let padId=null; const setStick=e=>{ const r=pad.getBoundingClientRect(); let dx=(e.clientX-r.left-r.width/2)/52, dy=(e.clientY-r.top-r.height/2)/52;
+    const m=Math.hypot(dx,dy); if(m>1){ dx/=m; dy/=m; } touch.x=dx; touch.y=dy; touch.mag=Math.min(1,m); nub.style.transform=`translate(${dx*41}px,${dy*41}px)`; };
+  const endStick=e=>{ if(e.pointerId!==padId)return; padId=null; touch.x=touch.y=touch.mag=0; nub.style.transform=""; };
+  pad.addEventListener("pointerdown",e=>{ padId=e.pointerId; try{ pad.setPointerCapture(e.pointerId); }catch(_){} setStick(e); e.preventDefault(); });
+  pad.addEventListener("pointermove",e=>{ if(e.pointerId===padId)setStick(e); });
+  pad.addEventListener("pointerup",endStick); pad.addEventListener("pointercancel",endStick);
+  // drag on the picture to look
+  let lookId=null,lx=0,ly=0; const cv=$("c");
+  cv.addEventListener("pointerdown",e=>{ if(e.pointerType!=="touch")return; lookId=e.pointerId; lx=e.clientX; ly=e.clientY; });
+  addEventListener("pointermove",e=>{ if(e.pointerId!==lookId||uiOpen||!running)return;
+    player.yaw-=(e.clientX-lx)*.0052*SETTINGS.sens; player.pitch=Math.max(-1.45,Math.min(1.45,player.pitch-(e.clientY-ly)*.0052*SETTINGS.sens)); lx=e.clientX; ly=e.clientY; });
+  const endLook=e=>{ if(e.pointerId===lookId)lookId=null; }; addEventListener("pointerup",endLook); addEventListener("pointercancel",endLook);
+  use.addEventListener("pointerdown",e=>{ e.preventDefault(); if(uiOpen==="note")closeNote(); else keys.KeyE=true; });
+  use.addEventListener("pointerup",()=>{ keys.KeyE=false; });
+  light.addEventListener("pointerdown",e=>{ e.preventDefault(); if(!uiOpen&&!player.seated)toggleTorch(); });
+  jr.addEventListener("pointerdown",e=>{ e.preventDefault(); if(uiOpen==="journal")closeJournal(); else if(!uiOpen&&running)openJournal(); });
+  const k=document.querySelector("#title .keys"); if(k)k.innerHTML="LEFT STICK MOVE · DRAG TO LOOK · USE · LIGHT · JOURNAL<br>SOUND ON · LANDSCAPE IS BEST";
+}
+addEventListener("touchstart",initTouch,{once:true,passive:true});
+function touchTick(){ if(!touch.on)return; const play=running&&!uiOpen;
+  touch.ui.children[0].style.display=touch.ui.children[1].style.display=touch.ui.children[2].style.display=play?"block":"none";
+  touch.ui.children[3].style.display=running&&(!uiOpen||uiOpen==="journal")?"block":"none";
+  touch.ui.children[3].textContent=uiOpen==="journal"?"CLOSE":"JOURNAL";
+  if(!play){ touch.x=touch.y=touch.mag=0; } }
+{ const k=document.querySelector("#title .keys"); if(k)k.innerHTML="WASD MOVE · SHIFT RUN · MOUSE LOOK · E INTERACT · F FLASHLIGHT · TAB JOURNAL · ESC PAUSE<br>SOUND ON · TOUCH SCREENS SUPPORTED"; }
+
+/* ---------------- Settings (in the pause menu) ---------------- */
+{ const row=document.createElement("div"); row.id="settingsRow";
+  row.style.cssText="display:flex;flex-wrap:wrap;gap:8px 22px;justify-content:center;padding:10px 12px;border-top:1px solid #363c34;font:10px 'Courier New',monospace;letter-spacing:2px;color:#b8c4b0";
+  const slider=(label,key,min,max,step,apply)=>{ const l=document.createElement("label"); l.style.cssText="display:flex;align-items:center;gap:8px";
+    const i=document.createElement("input"); i.type="range"; i.min=min; i.max=max; i.step=step; i.value=SETTINGS[key]; i.id="set_"+key; i.style.cssText="width:120px;accent-color:#c8a070";
+    i.oninput=()=>{ SETTINGS[key]=+i.value; apply&&apply(); saveSettings(); };
+    l.append(label,i); row.appendChild(l); };
+  slider("BRIGHTNESS","brightness",.6,1.8,.05,()=>{ postMat.uniforms.gain.value=SETTINGS.brightness; });
+  slider("LOOK SPEED","sens",.3,2.5,.05);
+  slider("VOLUME","volume",0,1,.02,()=>{ if(AU.master)AU.master.gain.value=SETTINGS.volume; });
+  const foot=document.querySelector("#pauseBox .pauseFoot"); foot.parentNode.insertBefore(row,foot); }
+
 /* ---------------- Main loop ---------------- */
 const clock=new THREE.Clock();
 let stepAcc=0, bobT=0;
@@ -3136,15 +3223,18 @@ function tick(){
     camera.position.set(seatPos.x,seatPos.y+Math.sin(t*1.4)*.008,seatPos.z);
     if(keys.KeyE&&running&&canStand){ keys.KeyE=false; standUp(); }
   } else if(running&&(!uiOpen||uiOpen==="debug")){
-    const run=keys.ShiftLeft||keys.ShiftRight;
-    const sp=(run?CFG.run:CFG.walk)*dt*DBG.speed;
+    const run=keys.ShiftLeft||keys.ShiftRight||touch.mag>.94;
+    let sp=(run?CFG.run:CFG.walk)*dt*DBG.speed*(curZone==="dream1"?.45:1);   // dreams are waded through
     let mx=0,mz=0;
     if(keys.KeyW){mx-=Math.sin(player.yaw);mz-=Math.cos(player.yaw);}
     if(keys.KeyS){mx+=Math.sin(player.yaw);mz+=Math.cos(player.yaw);}
     if(keys.KeyA){mx-=Math.cos(player.yaw);mz+=Math.sin(player.yaw);}
     if(keys.KeyD){mx+=Math.cos(player.yaw);mz-=Math.sin(player.yaw);}
     const len=Math.hypot(mx,mz);
-    if(len>0){ mx/=len;mz/=len;
+    if(touch.mag>.14&&len===0){ const f=-touch.y, r=touch.x;                 // analogue stick: forward/strafe in view space
+      mx=-f*Math.sin(player.yaw)+r*Math.cos(player.yaw); mz=-f*Math.cos(player.yaw)-r*Math.sin(player.yaw); sp*=Math.min(1,touch.mag*1.1); }
+    const len2=Math.hypot(mx,mz);
+    if(len2>0){ mx/=len2;mz/=len2;
       let nx=player.x+mx*sp, nz=player.z+mz*sp;
       if(!DBG.noclip){ [nx,nz]=collide(nx,nz); [nx,nz]=collide(nx,nz);
         // clamp to current zone bounds
@@ -3165,7 +3255,9 @@ function tick(){
   camera.rotation.y=player.yaw; camera.rotation.x=player.pitch;
 
   /* torch follows camera */
-  torch.position.copy(camera.position);
+  torch.position.set(camera.position.x+Math.cos(player.yaw)*.24,camera.position.y-.2,camera.position.z-Math.sin(player.yaw)*.24);
+  torch.shadow.needsUpdate=torch.intensity>.01;
+  swingTick(rawDt);
   const dir=new THREE.Vector3(0,0,-1).applyEuler(camera.rotation);
   torchTarget.position.copy(camera.position).add(dir.multiplyScalar(6));
   if(torchOn){ if(DBG.infBatt)battery=100; battery=Math.max(0,battery-CFG.torch.drain*dt);
@@ -3195,7 +3287,7 @@ function tick(){
   /* dread decay & tie into post + fog */
   if(!DBG.freezeDread)dread=Math.max(0,dread-dt*.05);
   if(DBG.open){ $("dbDread").value=dread; $("dbDreadV").textContent=dread.toFixed(2); }
-  dbgHudTick(dt);
+  dbgHudTick(dt); touchTick();
   fullGameTick(dt,t);
   postMat.uniforms.dread.value=dread;
   postMat.uniforms.time.value=t;
@@ -3214,7 +3306,7 @@ function tick(){
       if(o&&o.userData.ix.enabled&&hits[0].distance<=(o.userData.ix.range||CFG.interactRange))hit=o.userData.ix; }
   }
   if(hit&&!player.seated){ $("prompt").style.opacity=1; $("promptText").textContent=hit.prompt;
-    if(keys.KeyE){ keys.KeyE=false; hit.fn(); } }
+    if(keys.KeyE){ keys.KeyE=false; usedMesh=hit.mesh; hit.fn(); } }
   else $("prompt").style.opacity= player.seated&&running?1:0;
   if(player.seated&&running)$("promptText").textContent="Stand";
 
