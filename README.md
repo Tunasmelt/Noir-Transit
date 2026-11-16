@@ -14,6 +14,7 @@ The visual style is a deliberate throwback: a low-resolution render target, Baye
 
 ### Features
 
+- **An opening ride-in** — the game begins seated on the last train, looking over an empty carriage as the tunnel goes by; the train pulls into the station, the doors open, and control starts in the doorway. `E` skips it.
 - **11 connected zones** — an arrival station, the street, two dream-corridor interludes, the 8th floor (two flats), the ground-floor lobby, the back alley, a restock room, the 21st floor, the roof terrace, and the metro platform — linked by travel triggers, an elevator, and stairwells.
 - **Per-pixel lit, low-res rendering** — every fixture in the world (tubes, sconces, street lamps, the generator's pilot light) casts a real pool of light, quantised and dithered down to 240 lines.
 - **A fully procedural soundscape** — every ambient and story sound is synthesized, not sampled, with a per-zone weighted scheduler so each space has its own character.
@@ -120,8 +121,10 @@ NEXT_PUBLIC_BASE_PATH=/Noir-Transit npm run build
 - The pause menu freezes the simulation, scripted timers and audio.
 - Lighting: all surfaces are authored as `MeshLambertMaterial`, which `engine.js` routes to a matte per-pixel material at startup (walls and floors are single quads, so vertex lighting could not show a light pool). `wetMat()` adds a specular sheen to rain-slick ground. Per-level lights and dressing live in the `ART PASS` section near the end of the zone builds.
 - The flashlight casts hard-edged shadows and is held at the hip rather than the eye, so they are visible. Doors swing (and lift doors part) under the fade when you travel through them.
+- Point lights are bounded to rooms: each can carry an x/z box (`LIGHT_ROOMS`), and the shader drops its contribution outside it, so a lamp in the corridor cannot light the flat behind the wall. Outdoor levels share one sky, weather and city-sound system (`mkSky`, `nightlifeTick`).
+- The camera holds its horizontal field of view (about 92°) and narrows vertically on wide windows, so rooms keep their scale.
 - Puzzle hints escalate: the valve and chime puzzles only state their answer after four failed attempts; before that they point at the notes that carry it.
-- The developer debug menu (teleports, noclip, puzzle skips) is off by default. Append `?debug` to the URL to enable it, then press `` ` `` or `F1`.
+- The developer debug menu (teleports, noclip, puzzle skips) opens with `` ` `` or `F2`. Its on-screen button only appears with `?debug` in the URL.
 - The picture is always 240 lines tall; the column count follows the window (320 at 4:3, 426 at 16:9, capped at 21:9) so pixels stay square.
 - To modify game logic, edit `public/game/engine.js` directly — it's the same script that was in the original `<script>` tag, so all existing documentation/notes about the game's internals still apply.
 

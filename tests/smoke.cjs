@@ -40,6 +40,9 @@ const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL
 
   console.log("first half, played in order");
   const until = async (f, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await ev(f)) return true; await wait(250); } return false; };
+  check("opening: seated on a moving train, doors shut", await ev(() => ride.active && player.seated && arrTrain.position.x < 880 && arrDoors[1].userData.dl.position.x > -.3));
+  check("ride ends stopped at the platform, on foot in the open doorway", await until(() => !ride.active && !player.seated && arrTrain.position.x === 911 && arrDoors[1].userData.dl.position.x < -.8 && player.floorY > .5, 180000));
+  await ev(() => { player.z = 5.2; }); await wait(400);
   check("arrival → street", await use("Up to the street") && await until(() => curZone === "street" && !travelLock, 4000));
   await use("Home");
   check("front door → dream 1, on foot", await until(() => curZone === "dream1" && !player.seated, 8000));
@@ -58,8 +61,11 @@ const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL
   await lift("G"); check("lift → lobby", await until(() => curZone === "lobbyG" && !travelLock, 4000));
   await use("Back door"); check("back door → alley", await until(() => curZone === "alley" && !travelLock, 4000));
   await use("The Old Restock Door"); check("restock key opens the restock room", await until(() => curZone === "restock" && !travelLock, 6000));
-  await use("The generator"); check("generator starts the chase", await until(() => GS.chase && curZone === "dream2", 9000));
-  await ev(() => { player.z = 4; });
+  await use("The generator"); check("generator starts the chase", await until(() => GS.chase && curZone === "dream2", 30000));
+  check("she starts ahead of him and facing away", await ev(() => figure.visible && figure.position.z < player.z - 8));
+  await ev(() => { keys.KeyW = true; }); await until(() => player.z < 40, 60000);
+  check("she keeps ahead while he follows", await ev(() => figure.position.z < player.z - 6));
+  await ev(() => { keys.KeyW = false; player.z = 4; });
   check("catching her ends in the box room", await until(() => GS.boxPhase && curZone === "restock" && !GS.chase, 6000));
   await wait(800); await use("Back to the alley"); await wait(300);
   check("box room holds him until the boxes are searched", await ev(() => curZone === "restock"));
@@ -76,15 +82,22 @@ const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL
   for (const n of [2, 1, 3]) await ev(n => turnValve(valves.find(v => v.userData.idx === n)), n);
   for (const n of [2, 1, 3, 4]) await ev(n => strikeNode(nodes.find(v => v.userData.idx === n)), n);
   await wait(5600); await use("Take Puzzle Piece #3");
-  check("ledge appears after piece 3", await use("The ledge") && await ev(() => uiOpen === "choice"));
-  await page.click("#choiceA"); await wait(300); await page.click("#choiceA");
-  check("ending A reaches THE DROP", await until(() => document.getElementById("endScreen").style.display === "flex" && document.getElementById("endTitle").textContent === "THE DROP", 9000));
+  check("taking piece 3 turns the camera to the lit ledge", await ev(() => cine.active && GS.ledgeOn && ledgeLamp.l.intensity > 1));
+  check("control returns after the reveal", await until(() => !cine.active && !player.seated, 120000));
+  check("ledge offers the choice", await use("The ledge") && await ev(() => uiOpen === "choice"));
+  await page.click("#choiceA"); await wait(300);
+  check("sitting is a cutscene, then a second choice", await ev(() => cine.active) && await until(() => !cine.active && uiOpen === "choice", 180000));
+  check("he is seated on the ledge, looking out", await ev(() => player.seated && player.z > 13.9));
+  await page.click("#choiceA");
+  check("ending A reaches THE DROP", await until(() => document.getElementById("endScreen").style.display === "flex" && document.getElementById("endTitle").textContent === "THE DROP", 300000));
   check("no errors in the first-half playthrough", errors.length === 0, errors.join(" | "));
 
   console.log("second half, fresh session");
   await page.evaluate(() => new Promise(r => { const q = indexedDB.deleteDatabase("noirTransitSaves"); q.onsuccess = q.onerror = q.onblocked = () => r(); }));
   await page.goto(url); await wait(1500);
-  await page.click("#ldPlay1"); await wait(500); await page.click("#startBtn"); await wait(2000);
+  await page.click("#ldPlay1"); await wait(500); await page.click("#startBtn"); await wait(2500);
+  await ev(() => { keys.KeyE = true; }); await wait(400);
+  check("E skips the ride", await ev(() => !ride.active && !player.seated && curZone === "arrival"));
 
   console.log("zones");
   for (const z of ["arrival", "street", "dream1", "floor8", "lobbyG", "alley", "restock", "dream2", "floor21", "terrace", "metro"]) {
@@ -114,6 +127,7 @@ const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL
   for (const n of [2, 1, 3, 4]) await ev(n => strikeNode(nodes.find(v => v.userData.idx === n)), n);
   await wait(5600);
   check("music box drops piece 3", await use("Take Puzzle Piece #3") && await ev(() => GS.ledgeOn && inv.has("piece3")));
+  await ev(() => { cine.t = 99; }); await wait(400);
 
   console.log("ending B route");
   await ev(() => { ["piece1", "piece2"].forEach(x => give(x, "🧩", x)); give("photo", "🖼", "THE PHOTO"); startEndingB(); });
@@ -144,7 +158,8 @@ const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL
   check("opened safe unlocks the metro", await ev(() => GS.metroOpen === true && collected.has("n_letter")));
   check("boarded train is at the platform with its doors offered", await ev(() => figureBoarded && trainGrp.position.x === 814 && boardDoor.visible && boardDoor.userData.ix.enabled));
   await use("Board the train"); await use("Take a seat");
-  check("ending B reaches TRANSIT", await (async () => { const t0 = Date.now(); while (Date.now() - t0 < 9000) { if (await ev(() => document.getElementById("endTitle").textContent === "TRANSIT" && document.getElementById("endScreen").style.display === "flex")) return true; await wait(250); } return false; })());
+  check("ending B is a ride: seated, train pulling out", await ev(() => cine.active && player.seated) && await (async () => { const t0 = Date.now(); while (Date.now() - t0 < 120000) { if (await ev(() => trainGrp.position.x < 800)) return true; await wait(300); } return false; })());
+  check("ending B reaches TRANSIT", await (async () => { const t0 = Date.now(); while (Date.now() - t0 < 300000) { if (await ev(() => document.getElementById("endTitle").textContent === "TRANSIT" && document.getElementById("endScreen").style.display === "flex")) return true; await wait(250); } return false; })());
 
   check("no page or console errors", errors.length === 0, errors.join(" | "));
   await browser.close(); server.close();
