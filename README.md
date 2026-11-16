@@ -121,6 +121,8 @@ NEXT_PUBLIC_BASE_PATH=/Noir-Transit npm run build
 - The pause menu freezes the simulation, scripted timers and audio.
 - Lighting: all surfaces are authored as `MeshLambertMaterial`, which `engine.js` routes to a matte per-pixel material at startup (walls and floors are single quads, so vertex lighting could not show a light pool). `wetMat()` adds a specular sheen to rain-slick ground. Per-level lights and dressing live in the `ART PASS` section near the end of the zone builds.
 - The flashlight casts hard-edged shadows and is held at the hip rather than the eye, so they are visible. Doors swing (and lift doors part) under the fade when you travel through them.
+- Point lights are bounded to rooms: each can carry an x/z box (`LIGHT_ROOMS`), and the shader drops its contribution outside it, so a lamp in the corridor cannot light the flat behind the wall. Outdoor levels share one sky, weather and city-sound system (`mkSky`, `nightlifeTick`).
+- The camera holds its horizontal field of view (about 92°) and narrows vertically on wide windows, so rooms keep their scale.
 - Puzzle hints escalate: the valve and chime puzzles only state their answer after four failed attempts; before that they point at the notes that carry it.
 - The developer debug menu (teleports, noclip, puzzle skips) is off by default. Append `?debug` to the URL to enable it, then press `` ` `` or `F1`.
 - The picture is always 240 lines tall; the column count follows the window (320 at 4:3, 426 at 16:9, capped at 21:9) so pixels stay square.

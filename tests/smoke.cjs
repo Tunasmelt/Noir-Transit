@@ -61,8 +61,11 @@ const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL
   await lift("G"); check("lift → lobby", await until(() => curZone === "lobbyG" && !travelLock, 4000));
   await use("Back door"); check("back door → alley", await until(() => curZone === "alley" && !travelLock, 4000));
   await use("The Old Restock Door"); check("restock key opens the restock room", await until(() => curZone === "restock" && !travelLock, 6000));
-  await use("The generator"); check("generator starts the chase", await until(() => GS.chase && curZone === "dream2", 9000));
-  await ev(() => { player.z = 4; });
+  await use("The generator"); check("generator starts the chase", await until(() => GS.chase && curZone === "dream2", 30000));
+  check("she starts ahead of him and facing away", await ev(() => figure.visible && figure.position.z < player.z - 8));
+  await ev(() => { keys.KeyW = true; }); await until(() => player.z < 40, 60000);
+  check("she keeps ahead while he follows", await ev(() => figure.position.z < player.z - 6));
+  await ev(() => { keys.KeyW = false; player.z = 4; });
   check("catching her ends in the box room", await until(() => GS.boxPhase && curZone === "restock" && !GS.chase, 6000));
   await wait(800); await use("Back to the alley"); await wait(300);
   check("box room holds him until the boxes are searched", await ev(() => curZone === "restock"));
