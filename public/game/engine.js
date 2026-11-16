@@ -50,8 +50,9 @@ function saveSettings(){ try{ localStorage.setItem("noirSettings",JSON.stringify
 const uiTimeout=window.setTimeout.bind(window), _rawClear=window.clearTimeout.bind(window);
 const gameTimers=new Map(); let _timerSeq=1, gamePaused=false, _pausedAt=0; let _held=[];
 function _armTimer(tok,fn,ms){
+  const due=performance.now()+ms;   // when it was MEANT to fire; a busy frame must not add its lateness to the replay
   gameTimers.set(tok,uiTimeout(()=>{
-    if(gamePaused){ _held.push({tok,fn,due:performance.now()}); return; }
+    if(gamePaused){ _held.push({tok,fn,due}); return; }
     gameTimers.delete(tok); fn(); },ms)); }
 const later=(fn,ms)=>{ const tok=_timerSeq++; _armTimer(tok,fn,ms||0); return tok; };
 const cancelLater=tok=>{ if(gameTimers.has(tok)){ _rawClear(gameTimers.get(tok)); gameTimers.delete(tok); }
