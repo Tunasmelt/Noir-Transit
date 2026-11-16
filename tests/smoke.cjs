@@ -82,9 +82,14 @@ const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL
   for (const n of [2, 1, 3]) await ev(n => turnValve(valves.find(v => v.userData.idx === n)), n);
   for (const n of [2, 1, 3, 4]) await ev(n => strikeNode(nodes.find(v => v.userData.idx === n)), n);
   await wait(5600); await use("Take Puzzle Piece #3");
-  check("ledge appears after piece 3", await use("The ledge") && await ev(() => uiOpen === "choice"));
-  await page.click("#choiceA"); await wait(300); await page.click("#choiceA");
-  check("ending A reaches THE DROP", await until(() => document.getElementById("endScreen").style.display === "flex" && document.getElementById("endTitle").textContent === "THE DROP", 9000));
+  check("taking piece 3 turns the camera to the lit ledge", await ev(() => cine.active && GS.ledgeOn && ledgeLamp.l.intensity > 1));
+  check("control returns after the reveal", await until(() => !cine.active && !player.seated, 120000));
+  check("ledge offers the choice", await use("The ledge") && await ev(() => uiOpen === "choice"));
+  await page.click("#choiceA"); await wait(300);
+  check("sitting is a cutscene, then a second choice", await ev(() => cine.active) && await until(() => !cine.active && uiOpen === "choice", 180000));
+  check("he is seated on the ledge, looking out", await ev(() => player.seated && player.z > 13.9));
+  await page.click("#choiceA");
+  check("ending A reaches THE DROP", await until(() => document.getElementById("endScreen").style.display === "flex" && document.getElementById("endTitle").textContent === "THE DROP", 300000));
   check("no errors in the first-half playthrough", errors.length === 0, errors.join(" | "));
 
   console.log("second half, fresh session");
@@ -122,6 +127,7 @@ const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL
   for (const n of [2, 1, 3, 4]) await ev(n => strikeNode(nodes.find(v => v.userData.idx === n)), n);
   await wait(5600);
   check("music box drops piece 3", await use("Take Puzzle Piece #3") && await ev(() => GS.ledgeOn && inv.has("piece3")));
+  await ev(() => { cine.t = 99; }); await wait(400);
 
   console.log("ending B route");
   await ev(() => { ["piece1", "piece2"].forEach(x => give(x, "🧩", x)); give("photo", "🖼", "THE PHOTO"); startEndingB(); });
@@ -152,7 +158,8 @@ const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL
   check("opened safe unlocks the metro", await ev(() => GS.metroOpen === true && collected.has("n_letter")));
   check("boarded train is at the platform with its doors offered", await ev(() => figureBoarded && trainGrp.position.x === 814 && boardDoor.visible && boardDoor.userData.ix.enabled));
   await use("Board the train"); await use("Take a seat");
-  check("ending B reaches TRANSIT", await (async () => { const t0 = Date.now(); while (Date.now() - t0 < 9000) { if (await ev(() => document.getElementById("endTitle").textContent === "TRANSIT" && document.getElementById("endScreen").style.display === "flex")) return true; await wait(250); } return false; })());
+  check("ending B is a ride: seated, train pulling out", await ev(() => cine.active && player.seated) && await (async () => { const t0 = Date.now(); while (Date.now() - t0 < 120000) { if (await ev(() => trainGrp.position.x < 800)) return true; await wait(300); } return false; })());
+  check("ending B reaches TRANSIT", await (async () => { const t0 = Date.now(); while (Date.now() - t0 < 300000) { if (await ev(() => document.getElementById("endTitle").textContent === "TRANSIT" && document.getElementById("endScreen").style.display === "flex")) return true; await wait(250); } return false; })());
 
   check("no page or console errors", errors.length === 0, errors.join(" | "));
   await browser.close(); server.close();

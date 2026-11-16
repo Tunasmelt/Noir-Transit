@@ -1154,7 +1154,7 @@ addEventListener("keydown",e=>{ keys[e.code]=true;
   if(e.code==="Tab"){ e.preventDefault(); if(uiOpen==="journal")closeJournal(); else if(!uiOpen)openJournal(); }
   if(e.code==="KeyE"&&uiOpen==="note")closeNote();
   if(e.code==="Escape"){ if(uiOpen==="note")closeNote(); else if(uiOpen==="dial")closeDial(); else if(uiOpen==="journal")closeJournal(); else if(uiOpen==="elev")closeElev(); else if(uiOpen==="pause")closePause(); else if(!uiOpen&&running)openPause(false); }
-  if(DEBUG_ENABLED&&(e.code==="Backquote"||e.code==="F1"||e.code==="F2"||e.key==="`"||e.key==="~"||e.key==="§")){ e.preventDefault(); if(!uiOpen||uiOpen==="debug")toggleDebug(); }
+  if(e.code==="Backquote"||e.code==="F1"||e.code==="F2"||e.key==="`"||e.key==="~"||e.key==="§"){ e.preventDefault(); if(!uiOpen||uiOpen==="debug")toggleDebug(); }
   if(e.code==="Escape"&&uiOpen==="debug")toggleDebug();
   if(e.code==="KeyF"&&!uiOpen&&!player.seated)toggleTorch();
   if(uiOpen==="dial"){ const m=e.code.match(/^(?:Digit|Numpad)(\d)$/); if(m&&dialed.length<9){ dialed+=m[1]; AU.dial(); updDial(); } }
@@ -1278,6 +1278,24 @@ function rideTick(dt){ if(!ride.active)return; ride.t+=dt; const t=ride.t;
   if(ride.stopped){ setArrDoor(Math.min(1,Math.max(0,(t-ride.t0-.7)/1.1))); if(t-ride.t0>2.4&&!ride.done){ ride.done=true; fadeTo(()=>finishRide(),500); } }
   $("cineSkip").classList.toggle("on",performance.now()>ride.skipAt&&!ride.stopped);
 }
+/* ---------------- Scripted camera (cutscenes) ----------------
+   keys: [[t, x, eyeY, z, yaw, pitch], ...]. Uses the seated-camera path in tick, so the
+   player has no control while it runs. step(t,dt) is an optional per-frame hook. */
+const cine={active:false,t:0,keys:null,onEnd:null,step:null,bars:true};
+function eyeNow(){ return [player.x,camera.position.y,player.z,player.yaw,player.pitch]; }
+function nearAngle(a,ref){ while(a-ref>Math.PI)a-=Math.PI*2; while(a-ref<-Math.PI)a+=Math.PI*2; return a; }
+function playCine(keys,onEnd,o={}){ buildRideFx();
+  let ref=keys[0][4]; for(const k of keys){ k[4]=nearAngle(k[4],ref); ref=k[4]; }
+  Object.assign(cine,{active:true,t:0,keys,onEnd,step:o.step||null}); player.seated=true; canStand=false; torchOn=false; releaseKeys();
+  document.exitPointerLock?.(); if(o.bars!==false)document.documentElement.classList.add("cine"); $("cineSkip").classList.remove("on"); cineTick(0); }
+function cineTick(dt){ if(!cine.active)return; cine.t+=dt; const K=cine.keys, t=cine.t; let i=0; while(i<K.length-2&&t>K[i+1][0])i++;
+  const A=K[i],B=K[i+1], f=Math.max(0,Math.min(1,(t-A[0])/Math.max(.001,B[0]-A[0]))), e=f*f*(3-2*f), L=n=>A[n]+(B[n]-A[n])*e;
+  seatPos={x:L(1),y:L(2),z:L(3)}; player.x=seatPos.x; player.z=seatPos.z; player.yaw=L(4); player.pitch=L(5);
+  if(cine.step)cine.step(t,dt);
+  if(t>=K[K.length-1][0]){ cine.active=false; cine.step=null; const cb=cine.onEnd; cine.onEnd=null; cb&&cb(); } }
+function endCine(x,z,yaw){ document.documentElement.classList.remove("cine"); player.seated=false; canStand=true;
+  if(x!==undefined){ player.x=x; player.z=z; player.yaw=yaw; } player.pitch=0; player.floorY=(ZONES[curZone].ground?ZONES[curZone].ground(player.x,player.z):0)||0; relock(); }
+
 function finishRide(){
   ride.active=false; ride.done=true; clearGameTimers(); if(ride.fx)ride.fx.visible=false;
   ride.lap.visible=false; document.documentElement.classList.remove("cine");
@@ -1629,7 +1647,8 @@ function mkNode(){ const g=group();
   put(g,rod(.1,.1,.012,12,M.brass),0,0,-.02,Math.PI/2);
   put(g,box(.012,.2,.012,M.metalDark),0,.19,0); put(g,box(.08,.02,.06,M.metalDark),0,.3,-.02);   // hanger
   put(g,rod(.012,.012,.14,5,M.brass),.06,-.1,.03,0,0,-.3); put(g,new THREE.Mesh(new THREE.SphereGeometry(.024,6,6),M.brass),.08,-.17,.03);   // striker
-  const L=new THREE.PointLight(0xd8b060,.4,2.4,1.5); L.position.z=.3; g.add(L);
+  const L=new THREE.PointLight(0xd8b060,.9,3.4,1.5); L.position.z=.3; g.add(L); g.userData.light=L;
+  put(g,box(.34,.5,.02,lam(0x2a2620)),0,.06,-.035);   // a dark mounting plate, so the brass reads against any wall
   return g; }
 function mkValve(){ const g=group();
   put(g,rod(.05,.05,.7,8,M.metal),0,.35,0); put(g,rod(.08,.08,.04,8,M.metalDark),0,.02,0); put(g,rod(.075,.075,.05,8,M.metalDark),0,.6,0);
@@ -2499,7 +2518,7 @@ inZone("floor21",()=>{
       travel("terrace",701.6,7,-Math.PI/2,()=>{ AU.tenantsStop(); AU.windStart();
         if(inv.has("piece3")&&!GS.ledgeOn){ afterPiece3(); return; }
         say(null,"The roof. Rain in his collar within three steps. The city below is a rumor of light through cloud.",5400);
-        setObjective("The <b>music box</b>. Play her song — four chimes, in her order. <em>(The notes know it.)</em>"); });
+        setObjective("The <b>music box</b>, in the middle of the roof. Start there."); });
     } else { AU.rattle(); say(null,"Locked. TERRACE — the key from the boxes."); }
   });
 });
@@ -2637,7 +2656,8 @@ inZone("terrace",()=>{
   musicBox=mkMusicBox(); musicBox.position.set(ox+10,.6,7); scene.add(musicBox);
   interact(musicBox,"The music box",()=>{
     if(GS.piece3){ say(null,"It has played what it kept. The cylinder rests."); return; }
-    say(null,"Four brass chimes, scattered over the roof, wired back to this box. It wants them struck in her order.");
+    say(null,"Four brass chimes, scattered over the roof, each wired back to this box. Follow the cables. It wants them struck in her order — and one of them is under water that is not there yet.",6400);
+    if(!GS.tankFilled)setObjective("Follow the <b>cables</b> from the music box to four chimes. One is in the <b>dry tank</b>: the three <b>valves</b> fill it.");
   });
   piece3Mesh=mkPiece(); piece3Mesh.position.set(ox+10.35,.66,7); piece3Mesh.visible=false; scene.add(piece3Mesh);
   const ix3=interact(piece3Mesh,"Take Puzzle Piece #3",()=>{ piece3Mesh.visible=false; ix3.enabled=false; GS.piece3=true; give("piece3","🧩","PIECE #3"); afterPiece3(); }); ix3.enabled=false; piece3Mesh.userData.ix3=ix3;
@@ -2770,11 +2790,13 @@ function strikeNode(n){
   if(n.userData.float&&!GS.tankFilled){ say(null,"It lies at the bottom of the dry tank, out of reach. The pipes. Fill it."); return; }
   const want=NODE_ORDER[GS.nodeStep];
   AU.mnote([523,392,659,784][n.userData.idx-1]);
-  if(n.userData.idx===want){ GS.nodeStep++; n.children[0].material.emissive.setHex(0x6a5a20);
+  if(n.userData.idx===want){ GS.nodeStep++; n.children[0].material.emissive.setHex(0xd8a838); n.userData.light.intensity=2.2; n.userData.light.color.setHex(0xffd070);
+    if(GS.nodeStep<4)setObjective(`Her song: <b>${"●".repeat(GS.nodeStep)}${"○".repeat(4-GS.nodeStep)}</b> &nbsp;Four chimes, in her order.`);
     if(GS.nodeStep>=4)solveMusicBox();
     else say(null,["","The chime hangs in the rain. The box's cylinder turns a notch.","Two. The song is finding its feet.","Three. One left — <em>where the song always ended.</em>"][GS.nodeStep]);
   } else { GS.nodeStep=0; AU.discord(); dread=Math.min(1,dread+.15);
-    nodes.forEach(m=>m.children[0].material.emissive.setHex(0x2a2210));
+    nodes.forEach(m=>{ m.children[0].material.emissive.setHex(0x2a2210); m.userData.light.intensity=.9; m.userData.light.color.setHex(0xd8b060); });
+    setObjective(`Her song: <b>○○○○</b> &nbsp;Four chimes, in her order. <em>(Her two pages have it.)</em>`);
     const f=GS.nodeFails=(GS.nodeFails||0)+1, h1=collected.has("n_order1"), h2=collected.has("n_order2");
     if(f>=4)say(null,"A sour note. He stops, and recites it like a prayer: <em>the meter first, then the wall. Then the water. Then where they sat.</em>",6200);
     else if(f>=2)say(null,h1&&h2?"A sour note. The order is in her hand, split across two pages. <b>TAB</b> — read them together."
@@ -2790,11 +2812,18 @@ function solveMusicBox(){
     note3Mesh.visible=true; note3Mesh.userData.ixn3.enabled=true; AU.thud();
     setObjective("Something dropped from the music box. <b>Take it.</b>"); },5200);
 }
+let ledgeLamp=null;
+function lightLedge(){ if(ledgeLamp){ ledgeLamp.l.intensity=1.5; ledgeLamp.m.material.color.setHex(0xf6c878); ledgeLamp.beam.visible=true; } }
+const LEDGE={x:716,z:13.7};
 function afterPiece3(){
-  GS.ledgeOn=true; ledgeSpot.visible=true; ledgeSpot.userData.ix.enabled=true;
+  GS.ledgeOn=true; ledgeSpot.visible=true; ledgeSpot.userData.ix.enabled=true; lightLedge();
   AU.drone(); dread=Math.min(1,dread+.3);
   say(null,"And there — where the parapet turns — the ledge. Their ledge. Cleared of rain, as if someone kept it swept. As if it had been waiting all year.",6600);
-  setObjective("The <b>ledge</b> — their safe place. Go to it.");
+  setObjective("The <b>ledge</b> — their safe place. The lantern is lit. Go to it.");
+  // turn his head to it: nobody should have to hunt for the place the whole night was about
+  if(curZone==="terrace"&&running){ const e=eyeNow(), yaw=Math.atan2(-(LEDGE.x-e[0]),-(LEDGE.z-e[2])), d=Math.hypot(LEDGE.x-e[0],LEDGE.z-e[2]), pt=Math.atan2(1.3-e[1],d);
+    const mx=e[0]+(LEDGE.x-e[0])*Math.max(0,1-5/d), mz=e[2]+(LEDGE.z-.9-e[2])*Math.max(0,1-5/d);
+    playCine([[0,...e],[1.8,e[0],e[1],e[2],yaw,pt],[5.2,mx,1.6,mz,yaw,pt],[6.6,mx,1.6,mz,yaw,pt]],()=>endCine(mx,mz,nearAngle(yaw,0))); }
 }
 /* ════════ THE BRANCH (beat 17) ════════ */
 function ledgeChoice(){
@@ -2803,28 +2832,39 @@ function ledgeChoice(){
   $("choiceA").textContent="SIT ON THE LEDGE";
   $("choiceB").textContent="STEP BACK — THERE IS ONE THING LEFT UNDONE";
   $("choiceOverlay").classList.add("show");
-  $("choiceA").onclick=()=>{ $("choiceOverlay").classList.remove("show"); ledgeSecond(); };
+  $("choiceA").onclick=()=>{ $("choiceOverlay").classList.remove("show"); uiOpen=null; ledgeSecond(); };
   $("choiceB").onclick=()=>{ $("choiceOverlay").classList.remove("show"); uiOpen=null; relock(); startEndingB(); };
 }
 function ledgeSecond(){
-  $("choiceText").innerHTML="He sits. The stone is cold through his coat. Below, the street breathes light through the rain.<br><br>He can stay in the sitting. Or he can stand back up and go find the last thing she left him.";
-  $("choiceA").textContent="LET GO";
-  $("choiceB").textContent="STAND UP · GO BACK DOWN";
-  $("choiceOverlay").classList.add("show");
-  $("choiceA").onclick=()=>{ $("choiceOverlay").classList.remove("show"); uiOpen=null; endingA(); };
-  $("choiceB").onclick=()=>{ $("choiceOverlay").classList.remove("show"); uiOpen=null; relock(); startEndingB(); };
+  // he climbs up and sits: the camera goes where he goes, feet over the edge, the city under them
+  const e=eyeNow();
+  playCine([[0,...e],[2.2,LEDGE.x,2.05,LEDGE.z-.75,Math.PI,-.1],[4.4,LEDGE.x,2.3,LEDGE.z+.15,Math.PI,-.25],[6.2,LEDGE.x,1.95,LEDGE.z+.45,Math.PI,-.3],[8.4,LEDGE.x,1.95,LEDGE.z+.45,Math.PI+.25,-.12]],()=>{
+    uiOpen="choice";
+    $("choiceText").innerHTML="He sits. The stone is cold through his coat. Below, the street breathes light through the rain.<br><br>He can stay in the sitting. Or he can stand back up and go find the last thing she left him.";
+    $("choiceA").textContent="LET GO";
+    $("choiceB").textContent="STAND UP · GO BACK DOWN";
+    $("choiceOverlay").classList.add("show");
+    $("choiceA").onclick=()=>{ $("choiceOverlay").classList.remove("show"); uiOpen=null; endingA(); };
+    $("choiceB").onclick=()=>{ $("choiceOverlay").classList.remove("show"); uiOpen=null;
+      playCine([[0,...eyeNow()],[2.6,LEDGE.x,2.2,LEDGE.z-.3,Math.PI,0],[4.6,LEDGE.x,1.6,LEDGE.z-1.6,0,0]],()=>{ endCine(LEDGE.x,LEDGE.z-1.6,0); startEndingB(); }); };
+  });
+  say(null,"He climbs up the way he used to. One hand on the wet stone. Then both.",4200);
 }
 function endingA(){
-  GS.ending="A"; running=false; document.exitPointerLock?.();
-  const f=$("fader"); f.style.transition="opacity 4000ms"; f.style.opacity=1;
-  AU.sirenStart();
-  later(()=>{
+  GS.ending="A"; document.exitPointerLock?.();
+  // no fall is shown. He looks at the city one more time, then at the street, and the picture goes
+  const e=eyeNow(), f=$("fader");
+  later(()=>say(null,"The city is very quiet from here. It always was. That was the point of coming up.",5200),600);
+  later(()=>say(null,"Counting strange cars. He gets to four.",4200),6600);
+  later(()=>{ f.style.transition="opacity 4500ms"; f.style.opacity=1; AU.sirenStart(); },9000);
+  playCine([[0,...e],[4.5,e[0],e[1],e[2],Math.PI-.3,-.05],[8.5,e[0],e[1],e[2],Math.PI,-.55],[13.6,e[0],e[1]-.1,e[2]+.12,Math.PI,-1.0]],()=>{
+    running=false; document.documentElement.classList.remove("cine");
     finishGame("THE DROP",
       `Rain on the street. Lights that turn, and turn, and say nothing.<br>
       The ledge is empty now. The search is over because the searcher stopped.<br><br>
       <em style="color:#a89a7c">Somewhere above, a phone rings in an empty flat, and rings, and rings.</em><br><br>
       <span style="color:#54606c">ENDING A of 2 — there was another way down.</span>`);
-  },5200);
+  },{step:(t)=>{ dread=Math.min(1,.2+t*.06); }});
 }
 function startEndingB(){
   GS.ending="B";
@@ -2989,16 +3029,29 @@ function metroLogic(dt){
   }
 }
 function endingB(){
-  running=false; document.exitPointerLock?.();
-  const f=$("fader"); f.style.transition="opacity 2500ms"; f.style.opacity=1;
-  AU.trainStart(); dread=1;
-  later(()=>{ dread=0; AU.trainStop();
+  // he sits; the doors close; the platform slides away; the tunnel; and then light that is not a lamp
+  document.exitPointerLock?.(); buildRideFx(); GS.ending="B";
+  const seat=()=>[trainGrp.position.x+2.7,.58+1.1,trainGrp.position.z+.3], e=eyeNow(), s0=seat(), f=$("fader"); let scroll=0, white=false;
+  try{ AU.doorChime(); }catch(e2){}
+  later(()=>{ try{ AU.trainStart(); }catch(e2){} say(null,"The doors close on the platform, and on the year.",4600); },2600);
+  later(()=>say(null,"She is at the far end of the carriage. She does not turn round. She does not need to.",5600),8200);
+  later(()=>say(null,"Not to save her. Just to sit. Like the roof.",5200),15000);
+  playCine([[0,...e],[2.4,s0[0],s0[1],s0[2],0,-.05],[6,s0[0],s0[1],s0[2],-.5,0],[10,s0[0],s0[1],s0[2],1.3,-.02],[15,s0[0],s0[1],s0[2],1.15,0],[19,s0[0],s0[1],s0[2],0,.02],[24,s0[0],s0[1],s0[2],0,.05]],()=>{
+    running=false; dread=0; try{ AU.trainStop(); }catch(e2){} if(ride.fx)ride.fx.visible=false; figure.visible=false; document.documentElement.classList.remove("cine");
     finishGame("TRANSIT",
       `A few frames the eye refuses to hold — the car, the tunnel, the wrong angles of the dream —<br>
       and then: Thomas, seated. A window full of morning. Rails saying her hometown's name over and over.<br><br>
       <em style="color:#a89a7c">Not to save her. Just to sit. Like the roof.</em><br><br>
       <span style="color:#54606c">ENDING B of 2 — every minute was chosen.</span>`);
-  },5600);
+  },{step:(t,dt)=>{
+    if(t>3.4){ const v=Math.min(13,(t-3.4)*1.7); trainGrp.position.x-=v*dt; scroll+=v*dt; }              // pulling out
+    if(t>2.4){ const p=seat(); cine.keys.forEach(k=>{ if(k[0]>=2.4){ k[1]=p[0]; k[3]=p[2]; } }); }
+    figure.visible=t>7; figure.position.set(trainGrp.position.x-3.3,.58,trainGrp.position.z-.1);
+    const g=ride.fx, sx=seat()[0]; g.visible=sx<798; g.position.set(sx,0,trainGrp.position.z); ride.wall.material.map.offset.x=(scroll/6.4)%1;
+    ride.lamps.forEach((l,i)=>{ l.position.x=((i*8+scroll)%64+64)%64-32; });
+    const near=ride.lamps.reduce((a,l)=>Math.abs(l.position.x)<Math.abs(a.position.x)?l:a); ride.glow.position.set(near.position.x,2.0,-1.3); ride.glow.intensity=g.visible?1.5*Math.max(0,1-Math.abs(near.position.x)/5):0;
+    if(t>19.5&&!white){ white=true; f.style.background="#efe4c8"; f.style.transition="opacity 4200ms"; f.style.opacity=1; }   // a window full of morning
+  }});
 }
 /* ════════ ELEVATOR SYSTEM ════════ */
 const ELEV_DEST={ G:["lobbyG",201.4,3,-Math.PI/2], 8:["floor8",1.4,1.1,-Math.PI/2], 21:["floor21",601.4,1.1,-Math.PI/2] };
@@ -3059,6 +3112,7 @@ function fullGameTick(dt,t){
 }
 /* ════════ credits ════════ */
 function finishGame(title,body){
+  later(()=>{ $("fader").style.background="#000"; },1600);
   AU.sirenStop&&AU.sirenStop(); AU.tenantsStop&&AU.tenantsStop();
   $("endTitle").textContent=title;
   $("endBody").innerHTML=body;
@@ -3471,6 +3525,28 @@ inZone("terrace",()=>{ const ox=700;
     if(i<11){ const w=box(1.12,.012,.012,M.black); w.position.set(x+.545,y-(Math.sin((t+1/22)*Math.PI)-Math.sin(t*Math.PI))*.25,z); scene.add(w); }
     if(on&&i%6===0&&z<9)pl(0xe0a858,.5,4.5,x,y-.2,z); }
   for(const z of[8,11.6])for(const x of[ox+4,ox+16]){ const p=rod(.035,.045,2.6,6,M.metalDark); p.position.set(x,1.3,z); scene.add(p); addCollider(x,z,.2,.2); }
+  // ── THE LEDGE: always there, in the corner where the parapet turns; it only wakes when the song has played ──
+  { const lx=LEDGE.x, stone=surf(TEX.concrete,1.8,1,.8,0x9a968c);
+    const slab=box(1.9,.14,1.25,stone); slab.position.set(lx,1.21,14.15); scene.add(slab);                       // a wide flat stone, proud of the wall on both sides
+    for(const sx of[-1.05,1.05]){ const pier=box(.3,1.6,.5,surf(TEX.brickExt,.5,1.6,.5)); pier.position.set(lx+sx,.8,13.85); scene.add(pier); const cap=box(.4,.08,.6,lam(0x6a6a62)); cap.position.set(lx+sx,1.64,13.85); scene.add(cap); }
+    for(const [y,z,d] of[[.2,13.15,.5],[.55,13.42,.36]]){ const st=box(1.2,y<.3?.4:.3,d,stone); st.position.set(lx,y,z); scene.add(st); }   // two worn steps up
+    const blanket=box(1.2,.05,.7,lam(0x5a2a2a)); blanket.position.set(lx-.1,1.305,14.0); blanket.rotation.y=.08; scene.add(blanket);
+    for(const sx of[-.45,.3]){ const cup=rod(.04,.035,.09,8,lam(0xb8b0a0)); cup.position.set(lx+sx,1.36,14.3); scene.add(cup); }
+    const lan=group(); put(lan,box(.16,.04,.16,M.metalDark),0,.02,0); const flame=put(lan,box(.11,.18,.11,new THREE.MeshBasicMaterial({color:0x2a2620})),0,.13,0); put(lan,box(.18,.03,.18,M.metalDark),0,.235,0);
+    put(lan,new THREE.Mesh(new THREE.TorusGeometry(.07,.008,4,8,Math.PI),M.metalDark),0,.25,0); lan.position.set(lx+.75,1.28,13.95); scene.add(lan);
+    const l=pl(0xf0b860,0,7,lx+.5,1.9,13.5);
+    const beam=new THREE.Mesh(new THREE.ConeGeometry(1.6,5,12,1,true),new THREE.MeshBasicMaterial({color:0xf0b860,transparent:true,opacity:.05,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide,fog:false}));
+    beam.position.set(lx,3.2,13.9); beam.visible=false; scene.add(beam); ledgeLamp={l,m:flame,beam}; }
+  // cables from the music box to each chime, so the roof explains its own puzzle
+  { const cm=lam(0x7a6630), run=(x0,z0,x1,z1)=>{ const a=box(Math.abs(x1-x0)+.05,.025,.05,cm); a.position.set((x0+x1)/2,.014,z0); scene.add(a); const b2=box(.05,.025,Math.abs(z1-z0)+.05,cm); b2.position.set(x1,.014,(z0+z1)/2); scene.add(b2); };
+    run(ox+10,6.6,ox+6,.4); run(ox+10,7.0,ox+.9,5.78); run(ox+10.3,6.8,ox+15.6,3.3); run(ox+10.3,7.2,ox+17.5,13.5);
+    const riser=(x,z,h)=>{ const r=box(.05,h,.05,cm); r.position.set(x,h/2,z); scene.add(r); }; riser(ox+6,.36,1.0); riser(ox+17.5,13.52,1.0); riser(ox+15.6,3.3,1.4);
+    const jb=box(.3,.08,.3,M.metalDark); jb.position.set(ox+10.15,.04,6.9); scene.add(jb); }
+  // the three valves share a manifold that runs to the tank, so it is clear what they feed
+  { const mf=box(6.4,.1,.1,M.metal); mf.position.set(ox+11.2,.2,.75); scene.add(mf); const up=box(.1,.1,1.6,M.metal); up.position.set(ox+14.4,.2,1.5); scene.add(up);
+    const rise=box(.1,1.3,.1,M.metal); rise.position.set(ox+15.7,.65,2.3); scene.add(rise); const inl=box(1.3,.1,.1,M.metal); inl.position.set(ox+15.05,.2,2.3); scene.add(inl);
+    const plq=decal(tex((g,s)=>{ g.fillStyle="#2a2620"; g.fillRect(0,0,s,s); g.fillStyle="#c8b878"; g.font="bold 30px Courier New"; g.textAlign="center"; g.fillText("TANK FILL",s/2,s/2-4); g.font="18px Courier New"; g.fillText("OPEN IN ORDER",s/2,s/2+24); },256),.8,.4);
+    plq.material.map.repeat.set(1,.5); plq.material.map.offset.set(0,.25); plq.position.set(ox+10.5,1.75,.31); scene.add(plq); }
   // a mast with a working beacon, guyed down; and a dish pointed at nothing
   { const mx=ox+18.4, mz=1.4; const m=rod(.05,.08,7,6,M.metalDark); m.position.set(mx,3.5,mz); scene.add(m); addCollider(mx,mz,.3,.3);
     for(let i=0;i<4;i++){ const cr=box(1.1-i*.2,.04,.04,M.metalDark); cr.position.set(mx,3.6+i*.8,mz); cr.rotation.y=i*.8; scene.add(cr); }
@@ -3524,7 +3600,7 @@ let colGroup=null;
 function dbgBtn(id,fn){ $(id).onclick=fn; }
 function dbgFlag(id,key,lbl,after){ dbgBtn(id,()=>{ DBG[key]=!DBG[key];
   $(id).textContent=lbl+": "+(DBG[key]?"ON":"OFF"); $(id).classList.toggle("on",DBG[key]); after&&after(); }); }
-function toggleDebug(){ if(!DEBUG_ENABLED)return; DBG.open=!DBG.open; $("dbgPanel").classList.toggle("show",DBG.open);
+function toggleDebug(){ DBG.open=!DBG.open; $("dbgPanel").classList.toggle("show",DBG.open);
   if(DBG.open){ uiOpen="debug"; document.exitPointerLock?.(); }
   else if(uiOpen==="debug"){ uiOpen=null; relock(); } }
 function dbgEnsureRunning(){ if(!running&&$("title").style.display!=="none"){ beginGame(); } if(ride.active)finishRide(); }
@@ -3665,7 +3741,7 @@ function tick(){
   requestAnimationFrame(tick);
   const rawDt=Math.min(.05,clock.getDelta()); const t=clock.elapsedTime;
   const dt=(uiOpen==="pause"&&running)?0:rawDt;   // pause menu freezes the simulation
-  rideTick(dt);
+  rideTick(dt); cineTick(dt);
 
   /* door open animation */
   if(door8001Open&&d8001.rotation.y> -1.9)d8001.rotation.y-=dt*2.2;
@@ -3732,7 +3808,7 @@ function tick(){
 
   /* Figure behavior: glimpsed, then flees/vanishes (waking floors only) */
   if(figure.visible){ figure.lookAt(player.x,figure.position.y,player.z);
-    figure.position.y=Math.sin(t*2)*.02;
+    figure.position.y=(cine.active&&curZone==="metro"?.58:0)+Math.sin(t*2)*.02;
     if(curZone==="floor8"&&!GS.chase){ figureT+=dt;
       const dist=Math.hypot(player.x-figure.position.x,player.z-figure.position.z);
       if(figureT>7||dist<5){ figure.visible=false; AU.burst(.3,120,.3,1); dread=Math.min(1,dread+.3);
@@ -3852,13 +3928,14 @@ function syncPropsToState(){
   if(GS.tankFilled&&tankWater){ tankWater.position.y=2.75;
     const fl3=nodes.find(m=>m.userData.float); if(fl3){ fl3.position.y=2.87; if(fl3.userData.ix)fl3.userData.ix.prompt="A chime, riding the water"; } }
   nodes.forEach(n=>{ const solved=NODE_ORDER.slice(0,GS.nodeStep);
-    n.children[0].material.emissive.setHex(solved.includes(n.userData.idx)?0x6a5a20:0x2a2210); });
+    const on=solved.includes(n.userData.idx); n.children[0].material.emissive.setHex(on?0xd8a838:0x2a2210); n.userData.light.intensity=on?2.2:.9; });
   if((GS.nodeStep>=4||inv.has("piece3"))&&piece3Mesh){ const has3=inv.has("piece3");
     piece3Mesh.visible=!has3; piece3Mesh.userData.ix3.enabled=!has3; if(note3Mesh)note3Mesh.visible=true; }
   if((GS.ledgeOn||inv.has("piece3"))&&ledgeSpot){ GS.ledgeOn=true; ledgeSpot.visible=true; ledgeSpot.userData.ix.enabled=true; }
   if(GS.photoTaken&&terrPhotoMesh)terrPhotoMesh.visible=false;
   if(moonSpr) moonSpr.visible=!!GS.alley2;
   if(GS.safeOpen&&safeProp){ safeProp.userData.open=true; }
+  if(GS.ledgeOn)lightLedge();
 }
 
 /* A save can land in the gap between a flag flipping and the scripted beat that
@@ -3904,7 +3981,7 @@ function enterPlayMode(){
 }
 
 /* dreams, the chase and choice screens are scripted beats that can't be resumed mid-way */
-function canSaveNow(){ return running&&!ride.active&&!GS.chase&&curZone!=="dream1"&&curZone!=="dream2"; }
+function canSaveNow(){ return running&&!ride.active&&!cine.active&&!GS.chase&&curZone!=="dream1"&&curZone!=="dream2"; }
 async function doSave(slot){
   if(!canSaveNow()){ toast("Not here. He can't hold on to anything in a dream."); return; }
   const s=captureState(); s.slot=slot;
@@ -3930,7 +4007,7 @@ async function doDelete(slot){ await idbDelete(slot); renderPauseSlots(); }
 /* fired at every zone transition — skipped during scripted/dream sequences so a resume never
    lands mid-cutscene */
 function autosaveCheckpoint(){
-  if(!running||ride.active||GS.chase||curZone==="dream1"||curZone==="dream2"||uiOpen)return;
+  if(!running||ride.active||cine.active||GS.chase||curZone==="dream1"||curZone==="dream2"||uiOpen)return;
   const s=captureState(); s.slot="auto"; idbPut(s);
 }
 
