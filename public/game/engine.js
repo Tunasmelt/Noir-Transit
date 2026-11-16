@@ -1190,7 +1190,9 @@ function collide(nx,nz){ const r=CFG.radius;
   for(const c of colliders){ if(!c.on||c.zone!==curZone)continue;
     const cx=Math.max(c.minX,Math.min(nx,c.maxX)), cz=Math.max(c.minZ,Math.min(nz,c.maxZ));
     let dx=nx-cx,dz=nz-cz; let d2=dx*dx+dz*dz;
-    if(d2<r*r){ const d=Math.sqrt(d2)||.0001; const push=(r-d)/d; nx+=dx*push; nz+=dz*push; } }
+    if(d2===0){ const l=nx-c.minX, rr=c.maxX-nx, n=nz-c.minZ, f=c.maxZ-nz, m=Math.min(l,rr,n,f);     // inside the box: leave by the nearest face
+      if(m===l)nx=c.minX-r; else if(m===rr)nx=c.maxX+r; else if(m===n)nz=c.minZ-r; else nz=c.maxZ+r; }
+    else if(d2<r*r){ const d=Math.sqrt(d2); const push=(r-d)/d; nx+=dx*push; nz+=dz*push; } }
   return [nx,nz]; }
 
 /* flashlight */
@@ -1235,7 +1237,7 @@ function buildRideFx(){ if(ride.fx)return; const g=ride.fx=new THREE.Group();
     for(const sx of[-.13,.13]){ put(lap,box(.17,.13,.5,coat),sx,0,-.2,0,0,0); put(lap,box(.15,.42,.14,coat),sx,-.2,-.47); }
     put(lap,box(.2,.2,.09,lam(0xb8b0a0)),.02,.15,-.2,-.25,.2,0); put(lap,box(.2,.03,.09,lam(0x9a9284)),.02,.26,-.22,-.25,.2,0);   // the pharmacy bag, gone soft
     put(lap,box(.56,.3,.16,coat),0,.12,.06,.2);                                                                                  // coat front
-    lap.position.set(-4,1.0,.36); lap.visible=false; arrTrain.add(lap); }
+    lap.position.set(-4,1.12,.36); lap.visible=false; arrTrain.add(lap); }
   const wt=tex((c,s)=>{ c.fillStyle="#0c0e10"; c.fillRect(0,0,s,s); for(let x=0;x<s;x+=32){ c.fillStyle="#14171a"; c.fillRect(x,0,5,s); }
     c.fillStyle="#1c2024"; c.fillRect(0,s*.3,s,3); c.fillRect(0,s*.36,s,2); c.fillRect(0,s*.72,s,5); grime(c,s,18,.5); speck(c,s,90,"rgba(70,76,80,.5)"); },128);
   wt.repeat.set(10,1); ride.wall=new THREE.Mesh(new THREE.PlaneGeometry(64,3.6),new THREE.MeshBasicMaterial({map:wt,fog:false})); ride.wall.position.set(0,1.5,-2.0); g.add(ride.wall);
@@ -1263,7 +1265,7 @@ function rideTick(dt){ if(!ride.active)return; ride.t+=dt; const t=ride.t;
   arrTrain.position.x=911-RIDE_DIST*(1-u)*(1-u); ride.scroll+=v*dt;
   // his seat, and a little of the ride in his spine
   const jolt=Math.sin(t*9.1)*.004+Math.sin(t*23)*.002*(v/RIDE_SPEED);
-  seatPos={x:arrTrain.position.x-4,y:.58+1.08+jolt*(v>0?1:0),z:7.3+.36}; player.x=seatPos.x; player.z=seatPos.z;
+  seatPos={x:arrTrain.position.x-4,y:TRAIN_FLOOR+1.2+jolt*(v>0?1:0),z:7.3+.36}; player.x=seatPos.x; player.z=seatPos.z;
   // where he looks
   let k=0; while(k<RIDE_KEYS.length-2&&t>RIDE_KEYS[k+1][0])k++;
   const A=RIDE_KEYS[k],B=RIDE_KEYS[k+1], f=Math.max(0,Math.min(1,(t-A[0])/(B[0]-A[0]))), e=f*f*(3-2*f);
@@ -1307,7 +1309,7 @@ function finishRide(){
 /* beat 1 — arrival: the last train pulls in, doors open, step onto the platform */
 function startArrival(){
   setZone("arrival"); player.seated=false; canStand=true;
-  player.x=911; player.z=6.5; player.floorY=.58; player.yaw=0; player.pitch=0;   // on his feet in the open doorway, platform ahead
+  player.x=911; player.z=6.5; player.floorY=TRAIN_FLOOR; player.yaw=0; player.pitch=0;   // on his feet in the open doorway, platform ahead
   try{ AU.stationStart(); }catch(e){}
   say(null,"The last train. It lets him out into a station the colour of an old bruise. Nobody else gets off.",6200);
   setObjective("Step off the train. <b>Find the way up to the street.</b>");
@@ -1679,6 +1681,11 @@ function mkSafe(){ const g=group();   // sized to sit INSIDE the wardrobe carcas
   for(const y of[-.17,.17])put(g,rod(.022,.022,.1,6,M.metal),.27,.3+y,D/2+.01);
   const L=new THREE.PointLight(0xd8b070,0,2.2,1.5); L.position.set(0,.35,.1); g.add(L); g.userData.glow=L;   // lit only once it is open
   return g; }
+/* The carriages were modelled 1.86 m floor-to-ceiling with the floor 0.58 m above the platform, so a
+   standing player's eye sat inside the door lintel. Stretch them to real height and sink them so the
+   floor meets the platform; the bogies go down into the track pit, where they belong. */
+const TRAIN_SY=1.22, TRAIN_Y=-.63, TRAIN_FLOOR=.58*TRAIN_SY+TRAIN_Y+.05;   // walkable floor level, world units
+function fitTrain(g){ g.scale.y=TRAIN_SY; g.position.y=TRAIN_Y; }
 /* ── rolling stock: shared detailing for both trains ──
    The carriages were plain extrusions. This adds what makes a box read as a train: a turned
    roof with equipment pods, bogies, gangway bellows, a cab end with a destination blind and
@@ -1799,7 +1806,7 @@ inZone("arrival",()=>{
   const cabCeil=box(22,.08,1.42,surf(TEX.metroMetal,22,1.42,2.2,0x4b555a)); cabCeil.position.set(0,2.48,.02); arrTrain.add(cabCeil);
   const cabWall=box(21.7,1.65,.08,surf(TEX.metroMetal,21.7,1.65,2.0,0x4e585d)); cabWall.position.set(0,1.48,.72); arrTrain.add(cabWall);
   for(const x of[-8,-4,0,4,8]){ const seat=box(1.35,.12,.42,new THREE.MeshLambertMaterial({color:0x47525a})); seat.position.set(x,.85,.42); arrTrain.add(seat); }
-  const cabLight=box(18,.035,.16,new THREE.MeshBasicMaterial({color:0xd7d1ad})); cabLight.position.set(0,2.42,-.15); arrTrain.add(cabLight);
+  const cabLight=box(18,.02,.12,new THREE.MeshBasicMaterial({color:0xb8b49a})); cabLight.position.set(0,2.425,0); arrTrain.add(cabLight);
   const cabGlow=new THREE.PointLight(0xb7c9bd,.55,5,1.8); cabGlow.position.set(0,1.9,-.35); arrTrain.add(cabGlow);
   // far-side windows (black tunnel glass), advert cards and a line map, so the carriage reads from inside
   for(let i=-9;i<=9;i++){ const wx=i*1.05; const fw=box(.74,.62,.02,new THREE.MeshBasicMaterial({color:0x05080b})); fw.position.set(wx,1.7,.675); arrTrain.add(fw);
@@ -1826,11 +1833,12 @@ inZone("arrival",()=>{
     put(lf,box(.4,.03,.02,M.metalDark),0,.02,-.03); }
   setArrDoor(1);
   dressTrain(arrTrain,{cars:[0],carLen:22,hz:.85,roofY:2.36,doors:[-7,0,7],seats:[-8,-4,0,4,8],seatY:.85,seatZ:.42,blind:"TERMINATES"});
-  arrTrain.position.set(ox+11,0,7.3); scene.add(arrTrain);
+  arrTrain.position.set(ox+11,0,7.3); fitTrain(arrTrain); scene.add(arrTrain);
   // Train collision follows the stationary arrival train, leaving a real
   // doorway gap at the middle carriage entrance.
-  addCollider(ox+5.5,7.3,9.0,1.6,"arrivalTrain");
-  addCollider(ox+16.5,7.3,9.0,1.6,"arrivalTrain");
+  addCollider(ox+5.7,7.3,9.5,1.7,"arrivalTrain");     // carriage side, either side of a 1.1 m doorway
+  addCollider(ox+16.3,7.3,9.5,1.7,"arrivalTrain");
+  addCollider(ox+11,7.75,1.2,.5,"arrivalTrain");       // far side of the vestibule
   const trainInside=box(1.0,1.8,.7,new THREE.MeshBasicMaterial({visible:false,side:THREE.DoubleSide}));
   trainInside.position.set(ox+11,1.35,6.65); scene.add(trainInside);
   let ixTrainLeave=null;
@@ -1857,7 +1865,7 @@ inZone("arrival",()=>{
   // Keep the visible treads and player grounding on the same discrete profile.
   // The carriage floor is also a real walkable surface when the player enters it.
   ZONES.arrival.ground=(x,z)=>{
-    if(z>=6.05&&z<=7.3&&x>=ox+1.0&&x<=ox+21.0)return .58;
+    if(z>=6.2&&z<=7.3&&x>=ox+10.4&&x<=ox+11.6)return TRAIN_FLOOR;   // only in the doorway he actually uses
     return 0;
   };
 });
@@ -1929,21 +1937,28 @@ inZone("street",()=>{
     // One short rail per side is enough to frame the stoop without creating a
     // second, colliding staircase silhouette.
     for(const sx of[ox+2.72,ox+5.28]){
-      for(const rz of[.72,1.32]){ const post=box(.05,.58,.05,M.metalDark); post.position.set(sx,.57,rz); scene.add(post); }
-      const rail=box(.05,.05,.72,M.metalDark); rail.position.set(sx,.9,1.02); rail.rotation.x=-.38; scene.add(rail); }
+      // [z, height of the surface the post stands on]: back of the landing, top of the steps, foot of the steps
+      const P=[[-.2,.44],[.6,.44],[1.45,0]], H=.92, tops=P.map(([z,y])=>[z,y+H]);
+      for(const [z,y] of P){ const post=rod(.028,.028,H,6,M.metalDark); post.position.set(sx,y+H/2,z); scene.add(post);
+        const foot=box(.1,.02,.1,M.metalDark); foot.position.set(sx,y+.01,z); scene.add(foot); }
+      for(const dy of[0,-.42])for(let i=0;i<2;i++){ const [z0,y0]=tops[i],[z1,y1]=tops[i+1], len=Math.hypot(z1-z0,y1-y0);
+        const rail=box(dy?.03:.05,dy?.03:.05,len+.04,M.metalDark); rail.position.set(sx,(y0+y1)/2+dy,(z0+z1)/2); rail.rotation.x=Math.atan2(y0-y1,z1-z0); scene.add(rail); }
+      addCollider(sx,.2,.12,.9); }
     { const canopy=box(3.1,.16,.78,M.woodDark); canopy.position.set(ox+4,2.86,-.72); scene.add(canopy);
       const canopyLip=box(3.16,.08,.06,new THREE.MeshLambertMaterial({color:0x4d3d2c})); canopyLip.position.set(ox+4,2.75,-.31); scene.add(canopyLip); }
     { const pl2=new THREE.PointLight(0xc8a870,.48,5,1.7); pl2.position.set(ox+4,2.2,.38); scene.add(pl2); }
     // Door, trim, landing and collision now share the same .44m threshold.
-    const bd=mkDoor(plateTex("——")); bd.position.set(ox+3.55,.44,-.21); scene.add(bd);
-    doorTrim(ox+4,.44,-.19);
-    addCollider(ox+4,-.28,1.3,.45,"bldgDoor");
+    { const back=box(3.18,.44,1.1,conc); back.position.set(ox+4,.22,-1.0); scene.add(back); }      // landing runs back to the wall
+    const bd=mkDoor(plateTex("——")); bd.position.set(ox+3.55,.44,-1.46); scene.add(bd);
+    doorTrim(ox+4,.44,-1.42);
+    { const reveal=box(1.5,2.5,.06,lam(0x1a140e)); reveal.position.set(ox+4,1.69,-1.49); scene.add(reveal); }   // dark reveal behind the leaf
+    addCollider(ox+4,-1.35,1.3,.3,"bldgDoor");
     // sign + entry lamp over the door
     const sign=new THREE.Mesh(new THREE.PlaneGeometry(1.7,.3),new THREE.MeshBasicMaterial({map:tex((g,s)=>{ g.fillStyle="#14100c";g.fillRect(0,0,s,s);
       g.fillStyle="#b89a5a"; g.font="bold 40px Courier New"; g.textAlign="center"; g.fillText("HALDANE COURT",s/2,s/2+13); },256)}));
-    sign.position.set(ox+4,2.56,-1.48); scene.add(sign);
-    { const lampG=new THREE.Mesh(new THREE.SphereGeometry(.09,8,8),new THREE.MeshBasicMaterial({color:0xd8b070})); lampG.position.set(ox+4,2.28,-.3); scene.add(lampG);
-      const pl=new THREE.PointLight(0xd8a860,.8,6,1.7); pl.position.set(ox+4,2.28,0); scene.add(pl); }
+    sign.position.set(ox+4,3.02,-.3); scene.add(sign); { const bk=box(1.8,.4,.05,M.woodDark); bk.position.set(ox+4,3.02,-.33); scene.add(bk); }
+    { const lampG=new THREE.Mesh(new THREE.SphereGeometry(.09,8,8),new THREE.MeshBasicMaterial({color:0xd8b070})); lampG.position.set(ox+4,2.62,-.6); scene.add(lampG); { const st=box(.02,.16,.02,M.metalDark); st.position.set(ox+4,2.72,-.6); scene.add(st); }
+      const pl=new THREE.PointLight(0xd8a860,.8,6,1.7); pl.position.set(ox+4,2.4,-.5); scene.add(pl); }
     interact(bd,"Home",()=>{
       if(GS.metroOpen){ say("THOMAS","No. Not back inside. The station."); return; }
       if(travelLock)return; enterBuilding(); },{range:3.0});
@@ -2992,13 +3007,13 @@ inZone("metro",()=>{
   const doorHeader=box(1.3,.14,.1,M.metalDark); doorHeader.position.set(0,2.2,-1.02); trainGrp.add(doorHeader);
   for(let c=0;c<3;c++)put(trainGrp,box(8.6,.16,.05,lam(0x7a3a2a)),c*9-9,1.08,-1.09);     // oxblood waistband: not the line he came in on
   dressTrain(trainGrp,{cars:[-9,0,9],carLen:8.6,hz:1.1,roofY:2.44,doors:[0],seats:[-11.7,-9,-6.3,-2.7,0,2.7,6.3,9,11.7],seatY:.86,seatZ:.38,blind:"HER TOWN"});
-  trainGrp.position.set(ox+42,0,8); trainGrp.userData.arriving=false;
+  trainGrp.position.set(ox+42,0,8); fitTrain(trainGrp); trainGrp.userData.arriving=false;
   addCollider(ox+9,8,8,2.0,"metroTrain");
   addCollider(ox+19,8,8,2.0,"metroTrain");
   boardDoor=new THREE.Mesh(new THREE.PlaneGeometry(1.2,2.2),new THREE.MeshBasicMaterial({color:0x181a20}));
   boardDoor.position.set(ox+14,1.2,6.85); boardDoor.rotation.y=Math.PI; boardDoor.visible=false; scene.add(boardDoor);
   const ixB=interact(boardDoor,"Board the train",()=>{
-    player.x=ox+14; player.z=7.05; player.floorY=.58; player.yaw=Math.PI;
+    player.x=ox+14; player.z=7.05; player.floorY=TRAIN_FLOOR; player.yaw=Math.PI;
     boardDoor.visible=false; ixB.enabled=false; trainInteriorDoor.visible=true; trainInteriorDoor.userData.ix.enabled=true;
     say(null,"Inside, the train is warm and almost ordinary. The seats are damp with rain, and every window shows the same tunnel.",4800);
   }); ixB.enabled=false; boardDoor.userData.ix=ixB;
@@ -3008,7 +3023,7 @@ inZone("metro",()=>{
   // The final carriage has its own floor height. Without this, the player is
   // teleported inside and immediately sinks back to platform level.
   ZONES.metro.ground=(x,z)=>{
-    if(x>=ox+13.0&&x<=ox+15.0&&z>=6.9&&z<=7.85)return .58;
+    if(x>=ox+13.0&&x<=ox+15.0&&z>=6.9&&z<=7.85)return TRAIN_FLOOR;
     return 0;
   };
 });
@@ -3032,7 +3047,7 @@ function metroLogic(dt){
 function endingB(){
   // he sits; the doors close; the platform slides away; the tunnel; and then light that is not a lamp
   document.exitPointerLock?.(); buildRideFx(); GS.ending="B";
-  const seat=()=>[trainGrp.position.x+2.7,.58+1.1,trainGrp.position.z+.3], e=eyeNow(), s0=seat(), f=$("fader"); let scroll=0, white=false;
+  const seat=()=>[trainGrp.position.x+2.7,TRAIN_FLOOR+1.2,trainGrp.position.z+.3], e=eyeNow(), s0=seat(), f=$("fader"); let scroll=0, white=false;
   try{ AU.doorChime(); }catch(e2){}
   later(()=>{ try{ AU.trainStart(); }catch(e2){} say(null,"The doors close on the platform, and on the year.",4600); },2600);
   later(()=>say(null,"She is at the far end of the carriage. She does not turn round. She does not need to.",5600),8200);
@@ -3047,7 +3062,7 @@ function endingB(){
   },{step:(t,dt)=>{
     if(t>3.4){ const v=Math.min(13,(t-3.4)*1.7); trainGrp.position.x-=v*dt; scroll+=v*dt; }              // pulling out
     if(t>2.4){ const p=seat(); cine.keys.forEach(k=>{ if(k[0]>=2.4){ k[1]=p[0]; k[3]=p[2]; } }); }
-    figure.visible=t>7; figure.position.set(trainGrp.position.x-3.3,.58,trainGrp.position.z-.1);
+    figure.visible=t>7; figure.position.set(trainGrp.position.x-3.3,TRAIN_FLOOR,trainGrp.position.z-.1);
     const g=ride.fx, sx=seat()[0]; g.visible=sx<798; g.position.set(sx,0,trainGrp.position.z); ride.wall.material.map.offset.x=(scroll/6.4)%1;
     ride.lamps.forEach((l,i)=>{ l.position.x=((i*8+scroll)%64+64)%64-32; });
     const near=ride.lamps.reduce((a,l)=>Math.abs(l.position.x)<Math.abs(a.position.x)?l:a); ride.glow.position.set(near.position.x,2.0,-1.3); ride.glow.intensity=g.visible?1.5*Math.max(0,1-Math.abs(near.position.x)/5):0;
@@ -3809,7 +3824,7 @@ function tick(){
 
   /* Figure behavior: glimpsed, then flees/vanishes (waking floors only) */
   if(figure.visible){ figure.lookAt(player.x,figure.position.y,player.z);
-    figure.position.y=(cine.active&&curZone==="metro"?.58:0)+Math.sin(t*2)*.02;
+    figure.position.y=(cine.active&&curZone==="metro"?TRAIN_FLOOR:0)+Math.sin(t*2)*.02;
     if(curZone==="floor8"&&!GS.chase){ figureT+=dt;
       const dist=Math.hypot(player.x-figure.position.x,player.z-figure.position.z);
       if(figureT>7||dist<5){ figure.visible=false; AU.burst(.3,120,.3,1); dread=Math.min(1,dread+.3);

@@ -41,7 +41,10 @@ const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL
   console.log("first half, played in order");
   const until = async (f, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await ev(f)) return true; await wait(250); } return false; };
   check("opening: seated on a moving train, doors shut", await ev(() => ride.active && player.seated && arrTrain.position.x < 880 && arrDoors[1].userData.dl.position.x > -.3));
-  check("ride ends stopped at the platform, on foot in the open doorway", await until(() => !ride.active && !player.seated && arrTrain.position.x === 911 && arrDoors[1].userData.dl.position.x < -.8 && player.floorY > .5, 180000));
+  check("ride ends stopped at the platform, on foot in the open doorway", await until(() => !ride.active && !player.seated && arrTrain.position.x === 911 && arrDoors[1].userData.dl.position.x < -.8 && player.z > 6.3, 180000));
+  check("standing eye height clears the door head", await ev(() => { arrTrain.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(arrDoors[1]); return TRAIN_FLOOR + CFG.eye < b.max.y - .2 && TRAIN_FLOOR < .2; }));
+  await ev(() => { keys.KeyW = true; });
+  check("he can walk off the train onto the platform", await until(() => player.z < 5 && player.floorY < .02, 30000)); await ev(() => { keys.KeyW = false; });
   await ev(() => { player.z = 5.2; }); await wait(400);
   check("arrival → street", await use("Up to the street") && await until(() => curZone === "street" && !travelLock, 4000));
   await use("Home");
