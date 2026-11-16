@@ -37,7 +37,9 @@ The pause menu has brightness, look-speed and volume sliders; they are remembere
 | ![Arrival station](docs/screenshots/arrival-station.png) | ![21st floor corridor](docs/screenshots/21st-floor-corridor.png) |
 | *The last train lets him out into a station the colour of an old bruise.* | *The 21st floor — numbered doors, and an umbrella left on a bench.* |
 | ![Roof terrace](docs/screenshots/roof-terrace.png) | ![Street](docs/screenshots/street.png) |
-| *The terrace: a bench facing the city, and the string lights she hung.* | *Haldane Court's street, in the rain.* |
+| *The terrace: a bench facing the city, and the string lights she hung.* | *The end of the street: the subway, and the rest of the city.* |
+| ![Metro train](docs/screenshots/metro-train.png) | ![Landing page](docs/screenshots/landing.png) |
+| *The train she has been waiting for.* | *The case-file landing page.* |
 
 The in-game screenshots above are unretouched frames with the flashlight off and the HUD hidden.
 
@@ -89,7 +91,7 @@ npm run build
 npm run test:smoke
 ```
 
-The smoke test serves `out/`, boots the game in headless Chromium and drives it through the engine's own functions: every zone ticks without errors, pause holds scripted timers, the terrace puzzles solve and their hints escalate, the ending B route runs through, and an in-game load resumes correctly. It needs a Chromium for Playwright:
+The smoke test serves `out/`, boots the game in headless Chromium and plays it through the engine's own functions. It covers the whole game: the first half in order (arrival, dream, phone, the dial puzzle, the chase, the box room, the terrace) to ending A; then a fresh session for the terrace puzzles and their escalating hints, the ending B route to its end screen, pause, in-game load, and three saves taken mid-beat that used to soft-lock. It needs a Chromium for Playwright:
 
 ```bash
 npx playwright install chromium
