@@ -84,7 +84,7 @@ const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL
   check("terrace key opens the roof", await until(() => curZone === "terrace" && !travelLock, 30000));
   check("the way back in is a door he can see and use", await ev(() => { const e = interactables.find(e => e.prompt === "Back inside" && e.zone === "terrace"); if (!e || !e.mesh.userData.isDoor) return false;
     scene.updateMatrixWorld(true); const c = new THREE.Box3().setFromObject(e.mesh).getCenter(new THREE.Vector3()); return Math.hypot(c.x - player.x, c.z - player.z) < 2.5; }));
-  check("nothing solid stands between the pergola and the ledge", await ev(() => { for (let t = 0; t <= 1; t += .02) { const x = 712 + (LEDGE.x - 712) * t, z = 12.5 + (LEDGE.z - 1.2 - 12.5) * t, [cx, cz] = collide(x, z); if (Math.hypot(cx - x, cz - z) > .01) return false; } return true; }));
+  check("nothing solid stands between the bench and the ledge", await ev(() => { for (let t = 0; t <= 1; t += .02) { const x = 714 + (LEDGE.x - 714) * t, z = 13.2 + (LEDGE.z - 1.2 - 13.2) * t, [cx, cz] = collide(x, z); if (Math.hypot(cx - x, cz - z) > .01) return false; } return true; }));
 
   console.log("ending A");
   for (const n of [2, 1, 3]) await ev(n => turnValve(valves.find(v => v.userData.idx === n)), n);
