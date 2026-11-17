@@ -236,7 +236,7 @@ const ZONES={
   restock: {ox: 400,oz:0, bounds:[400.35,409.65,.35,7.65], fog:[0x0a0908,2.5,18], bg:0x0a0908, rain:false},
   dream2:  {ox: 500,oz:0, bounds:[500.4,503.6,.4,45.6],    fog:[0x1a1c1e,3,16], bg:0x1a1c1e, rain:false},
   floor21: {ox: 600,oz:0, bounds:[600.35,617.65,.35,5.65], fog:[0x07070c,3,24], bg:0x07070c, rain:false},
-  terrace: {ox: 700,oz:0, bounds:[700.4,719.6,.4,13.6],    fog:[0x05070c,4,32], bg:0x05070c, rain:true},
+  terrace: {ox: 700,oz:0, bounds:[700.4,723.6,.4,17.6],    fog:[0x05070c,4,32], bg:0x05070c, rain:true},
   metro:   {ox: 800,oz:0, bounds:[800.4,827.6,.4,9.6],     fog:[0x0b0d10,3,26], bg:0x0b0d10, rain:false},
 };
 const zoneGroups={}; let ZONE="floor8"; let curZone="floor8";
@@ -1190,7 +1190,9 @@ function collide(nx,nz){ const r=CFG.radius;
   for(const c of colliders){ if(!c.on||c.zone!==curZone)continue;
     const cx=Math.max(c.minX,Math.min(nx,c.maxX)), cz=Math.max(c.minZ,Math.min(nz,c.maxZ));
     let dx=nx-cx,dz=nz-cz; let d2=dx*dx+dz*dz;
-    if(d2<r*r){ const d=Math.sqrt(d2)||.0001; const push=(r-d)/d; nx+=dx*push; nz+=dz*push; } }
+    if(d2===0){ const l=nx-c.minX, rr=c.maxX-nx, n=nz-c.minZ, f=c.maxZ-nz, m=Math.min(l,rr,n,f);     // inside the box: leave by the nearest face
+      if(m===l)nx=c.minX-r; else if(m===rr)nx=c.maxX+r; else if(m===n)nz=c.minZ-r; else nz=c.maxZ+r; }
+    else if(d2<r*r){ const d=Math.sqrt(d2); const push=(r-d)/d; nx+=dx*push; nz+=dz*push; } }
   return [nx,nz]; }
 
 /* flashlight */
@@ -1235,7 +1237,7 @@ function buildRideFx(){ if(ride.fx)return; const g=ride.fx=new THREE.Group();
     for(const sx of[-.13,.13]){ put(lap,box(.17,.13,.5,coat),sx,0,-.2,0,0,0); put(lap,box(.15,.42,.14,coat),sx,-.2,-.47); }
     put(lap,box(.2,.2,.09,lam(0xb8b0a0)),.02,.15,-.2,-.25,.2,0); put(lap,box(.2,.03,.09,lam(0x9a9284)),.02,.26,-.22,-.25,.2,0);   // the pharmacy bag, gone soft
     put(lap,box(.56,.3,.16,coat),0,.12,.06,.2);                                                                                  // coat front
-    lap.position.set(-4,1.0,.36); lap.visible=false; arrTrain.add(lap); }
+    lap.position.set(-4,1.12,.36); lap.visible=false; arrTrain.add(lap); }
   const wt=tex((c,s)=>{ c.fillStyle="#0c0e10"; c.fillRect(0,0,s,s); for(let x=0;x<s;x+=32){ c.fillStyle="#14171a"; c.fillRect(x,0,5,s); }
     c.fillStyle="#1c2024"; c.fillRect(0,s*.3,s,3); c.fillRect(0,s*.36,s,2); c.fillRect(0,s*.72,s,5); grime(c,s,18,.5); speck(c,s,90,"rgba(70,76,80,.5)"); },128);
   wt.repeat.set(10,1); ride.wall=new THREE.Mesh(new THREE.PlaneGeometry(64,3.6),new THREE.MeshBasicMaterial({map:wt,fog:false})); ride.wall.position.set(0,1.5,-2.0); g.add(ride.wall);
@@ -1263,7 +1265,7 @@ function rideTick(dt){ if(!ride.active)return; ride.t+=dt; const t=ride.t;
   arrTrain.position.x=911-RIDE_DIST*(1-u)*(1-u); ride.scroll+=v*dt;
   // his seat, and a little of the ride in his spine
   const jolt=Math.sin(t*9.1)*.004+Math.sin(t*23)*.002*(v/RIDE_SPEED);
-  seatPos={x:arrTrain.position.x-4,y:.58+1.08+jolt*(v>0?1:0),z:7.3+.36}; player.x=seatPos.x; player.z=seatPos.z;
+  seatPos={x:arrTrain.position.x-4,y:TRAIN_FLOOR+1.2+jolt*(v>0?1:0),z:7.3+.36}; player.x=seatPos.x; player.z=seatPos.z;
   // where he looks
   let k=0; while(k<RIDE_KEYS.length-2&&t>RIDE_KEYS[k+1][0])k++;
   const A=RIDE_KEYS[k],B=RIDE_KEYS[k+1], f=Math.max(0,Math.min(1,(t-A[0])/(B[0]-A[0]))), e=f*f*(3-2*f);
@@ -1288,7 +1290,7 @@ function nearAngle(a,ref){ while(a-ref>Math.PI)a-=Math.PI*2; while(a-ref<-Math.P
 function playCine(keys,onEnd,o={}){ buildRideFx();
   let ref=keys[0][4]; for(const k of keys){ k[4]=nearAngle(k[4],ref); ref=k[4]; }
   Object.assign(cine,{active:true,t:0,keys,onEnd,step:o.step||null}); player.seated=true; canStand=false; torchOn=false; releaseKeys();
-  document.exitPointerLock?.(); if(o.bars!==false)document.documentElement.classList.add("cine"); $("cineSkip").classList.remove("on"); cineTick(0); }
+  if(o.bars!==false)document.documentElement.classList.add("cine"); $("cineSkip").classList.remove("on"); cineTick(0); }
 function cineTick(dt){ if(!cine.active)return; cine.t+=dt; const K=cine.keys, t=cine.t; let i=0; while(i<K.length-2&&t>K[i+1][0])i++;
   const A=K[i],B=K[i+1], f=Math.max(0,Math.min(1,(t-A[0])/Math.max(.001,B[0]-A[0]))), e=f*f*(3-2*f), L=n=>A[n]+(B[n]-A[n])*e;
   seatPos={x:L(1),y:L(2),z:L(3)}; player.x=seatPos.x; player.z=seatPos.z; player.yaw=L(4); player.pitch=L(5);
@@ -1307,7 +1309,7 @@ function finishRide(){
 /* beat 1 — arrival: the last train pulls in, doors open, step onto the platform */
 function startArrival(){
   setZone("arrival"); player.seated=false; canStand=true;
-  player.x=911; player.z=6.5; player.floorY=.58; player.yaw=0; player.pitch=0;   // on his feet in the open doorway, platform ahead
+  player.x=911; player.z=6.5; player.floorY=TRAIN_FLOOR; player.yaw=0; player.pitch=0;   // on his feet in the open doorway, platform ahead
   try{ AU.stationStart(); }catch(e){}
   say(null,"The last train. It lets him out into a station the colour of an old bruise. Nobody else gets off.",6200);
   setObjective("Step off the train. <b>Find the way up to the street.</b>");
@@ -1679,6 +1681,11 @@ function mkSafe(){ const g=group();   // sized to sit INSIDE the wardrobe carcas
   for(const y of[-.17,.17])put(g,rod(.022,.022,.1,6,M.metal),.27,.3+y,D/2+.01);
   const L=new THREE.PointLight(0xd8b070,0,2.2,1.5); L.position.set(0,.35,.1); g.add(L); g.userData.glow=L;   // lit only once it is open
   return g; }
+/* The carriages were modelled 1.86 m floor-to-ceiling with the floor 0.58 m above the platform, so a
+   standing player's eye sat inside the door lintel. Stretch them to real height and sink them so the
+   floor meets the platform; the bogies go down into the track pit, where they belong. */
+const TRAIN_SY=1.22, TRAIN_Y=-.63, TRAIN_FLOOR=.58*TRAIN_SY+TRAIN_Y+.05;   // walkable floor level, world units
+function fitTrain(g){ g.scale.y=TRAIN_SY; g.position.y=TRAIN_Y; }
 /* ── rolling stock: shared detailing for both trains ──
    The carriages were plain extrusions. This adds what makes a box read as a train: a turned
    roof with equipment pods, bogies, gangway bellows, a cab end with a destination blind and
@@ -1799,7 +1806,7 @@ inZone("arrival",()=>{
   const cabCeil=box(22,.08,1.42,surf(TEX.metroMetal,22,1.42,2.2,0x4b555a)); cabCeil.position.set(0,2.48,.02); arrTrain.add(cabCeil);
   const cabWall=box(21.7,1.65,.08,surf(TEX.metroMetal,21.7,1.65,2.0,0x4e585d)); cabWall.position.set(0,1.48,.72); arrTrain.add(cabWall);
   for(const x of[-8,-4,0,4,8]){ const seat=box(1.35,.12,.42,new THREE.MeshLambertMaterial({color:0x47525a})); seat.position.set(x,.85,.42); arrTrain.add(seat); }
-  const cabLight=box(18,.035,.16,new THREE.MeshBasicMaterial({color:0xd7d1ad})); cabLight.position.set(0,2.42,-.15); arrTrain.add(cabLight);
+  const cabLight=box(18,.02,.12,new THREE.MeshBasicMaterial({color:0xb8b49a})); cabLight.position.set(0,2.425,0); arrTrain.add(cabLight);
   const cabGlow=new THREE.PointLight(0xb7c9bd,.55,5,1.8); cabGlow.position.set(0,1.9,-.35); arrTrain.add(cabGlow);
   // far-side windows (black tunnel glass), advert cards and a line map, so the carriage reads from inside
   for(let i=-9;i<=9;i++){ const wx=i*1.05; const fw=box(.74,.62,.02,new THREE.MeshBasicMaterial({color:0x05080b})); fw.position.set(wx,1.7,.675); arrTrain.add(fw);
@@ -1826,11 +1833,12 @@ inZone("arrival",()=>{
     put(lf,box(.4,.03,.02,M.metalDark),0,.02,-.03); }
   setArrDoor(1);
   dressTrain(arrTrain,{cars:[0],carLen:22,hz:.85,roofY:2.36,doors:[-7,0,7],seats:[-8,-4,0,4,8],seatY:.85,seatZ:.42,blind:"TERMINATES"});
-  arrTrain.position.set(ox+11,0,7.3); scene.add(arrTrain);
+  arrTrain.position.set(ox+11,0,7.3); fitTrain(arrTrain); scene.add(arrTrain);
   // Train collision follows the stationary arrival train, leaving a real
   // doorway gap at the middle carriage entrance.
-  addCollider(ox+5.5,7.3,9.0,1.6,"arrivalTrain");
-  addCollider(ox+16.5,7.3,9.0,1.6,"arrivalTrain");
+  addCollider(ox+5.7,7.3,9.5,1.7,"arrivalTrain");     // carriage side, either side of a 1.1 m doorway
+  addCollider(ox+16.3,7.3,9.5,1.7,"arrivalTrain");
+  addCollider(ox+11,7.75,1.2,.5,"arrivalTrain");       // far side of the vestibule
   const trainInside=box(1.0,1.8,.7,new THREE.MeshBasicMaterial({visible:false,side:THREE.DoubleSide}));
   trainInside.position.set(ox+11,1.35,6.65); scene.add(trainInside);
   let ixTrainLeave=null;
@@ -1857,7 +1865,7 @@ inZone("arrival",()=>{
   // Keep the visible treads and player grounding on the same discrete profile.
   // The carriage floor is also a real walkable surface when the player enters it.
   ZONES.arrival.ground=(x,z)=>{
-    if(z>=6.05&&z<=7.3&&x>=ox+1.0&&x<=ox+21.0)return .58;
+    if(z>=6.2&&z<=7.3&&x>=ox+10.4&&x<=ox+11.6)return TRAIN_FLOOR;   // only in the doorway he actually uses
     return 0;
   };
 });
@@ -1929,21 +1937,28 @@ inZone("street",()=>{
     // One short rail per side is enough to frame the stoop without creating a
     // second, colliding staircase silhouette.
     for(const sx of[ox+2.72,ox+5.28]){
-      for(const rz of[.72,1.32]){ const post=box(.05,.58,.05,M.metalDark); post.position.set(sx,.57,rz); scene.add(post); }
-      const rail=box(.05,.05,.72,M.metalDark); rail.position.set(sx,.9,1.02); rail.rotation.x=-.38; scene.add(rail); }
+      // [z, height of the surface the post stands on]: back of the landing, top of the steps, foot of the steps
+      const P=[[-.2,.44],[.6,.44],[1.45,0]], H=.92, tops=P.map(([z,y])=>[z,y+H]);
+      for(const [z,y] of P){ const post=rod(.028,.028,H,6,M.metalDark); post.position.set(sx,y+H/2,z); scene.add(post);
+        const foot=box(.1,.02,.1,M.metalDark); foot.position.set(sx,y+.01,z); scene.add(foot); }
+      for(const dy of[0,-.42])for(let i=0;i<2;i++){ const [z0,y0]=tops[i],[z1,y1]=tops[i+1], len=Math.hypot(z1-z0,y1-y0);
+        const rail=box(dy?.03:.05,dy?.03:.05,len+.04,M.metalDark); rail.position.set(sx,(y0+y1)/2+dy,(z0+z1)/2); rail.rotation.x=Math.atan2(y0-y1,z1-z0); scene.add(rail); }
+      addCollider(sx,.2,.12,.9); }
     { const canopy=box(3.1,.16,.78,M.woodDark); canopy.position.set(ox+4,2.86,-.72); scene.add(canopy);
       const canopyLip=box(3.16,.08,.06,new THREE.MeshLambertMaterial({color:0x4d3d2c})); canopyLip.position.set(ox+4,2.75,-.31); scene.add(canopyLip); }
     { const pl2=new THREE.PointLight(0xc8a870,.48,5,1.7); pl2.position.set(ox+4,2.2,.38); scene.add(pl2); }
     // Door, trim, landing and collision now share the same .44m threshold.
-    const bd=mkDoor(plateTex("——")); bd.position.set(ox+3.55,.44,-.21); scene.add(bd);
-    doorTrim(ox+4,.44,-.19);
-    addCollider(ox+4,-.28,1.3,.45,"bldgDoor");
+    { const back=box(3.18,.44,1.1,conc); back.position.set(ox+4,.22,-1.0); scene.add(back); }      // landing runs back to the wall
+    const bd=mkDoor(plateTex("——")); bd.position.set(ox+3.55,.44,-1.46); scene.add(bd);
+    doorTrim(ox+4,.44,-1.42);
+    { const reveal=box(1.5,2.5,.06,lam(0x1a140e)); reveal.position.set(ox+4,1.69,-1.49); scene.add(reveal); }   // dark reveal behind the leaf
+    addCollider(ox+4,-1.35,1.3,.3,"bldgDoor");
     // sign + entry lamp over the door
     const sign=new THREE.Mesh(new THREE.PlaneGeometry(1.7,.3),new THREE.MeshBasicMaterial({map:tex((g,s)=>{ g.fillStyle="#14100c";g.fillRect(0,0,s,s);
       g.fillStyle="#b89a5a"; g.font="bold 40px Courier New"; g.textAlign="center"; g.fillText("HALDANE COURT",s/2,s/2+13); },256)}));
-    sign.position.set(ox+4,2.56,-1.48); scene.add(sign);
-    { const lampG=new THREE.Mesh(new THREE.SphereGeometry(.09,8,8),new THREE.MeshBasicMaterial({color:0xd8b070})); lampG.position.set(ox+4,2.28,-.3); scene.add(lampG);
-      const pl=new THREE.PointLight(0xd8a860,.8,6,1.7); pl.position.set(ox+4,2.28,0); scene.add(pl); }
+    sign.position.set(ox+4,3.02,-.3); scene.add(sign); { const bk=box(1.8,.4,.05,M.woodDark); bk.position.set(ox+4,3.02,-.33); scene.add(bk); }
+    { const lampG=new THREE.Mesh(new THREE.SphereGeometry(.09,8,8),new THREE.MeshBasicMaterial({color:0xd8b070})); lampG.position.set(ox+4,2.62,-.6); scene.add(lampG); { const st=box(.02,.16,.02,M.metalDark); st.position.set(ox+4,2.72,-.6); scene.add(st); }
+      const pl=new THREE.PointLight(0xd8a860,.8,6,1.7); pl.position.set(ox+4,2.4,-.5); scene.add(pl); }
     interact(bd,"Home",()=>{
       if(GS.metroOpen){ say("THOMAS","No. Not back inside. The station."); return; }
       if(travelLock)return; enterBuilding(); },{range:3.0});
@@ -2516,225 +2531,16 @@ inZone("floor21",()=>{
     if(!GS.photoTaken){ say("THOMAS","There's something on the door. Take it first. It's them."); return; }
     if(GS.terraceUnlocked||inv.has("key_terrace")){
       if(!GS.terraceUnlocked){ GS.terraceUnlocked=true; AU.key(); }
-      travel("terrace",701.6,7,-Math.PI/2,()=>{ AU.tenantsStop(); AU.windStart();
+      travel("terrace",704.7,9,-Math.PI/2,()=>{ AU.tenantsStop(); AU.windStart();
         if(inv.has("piece3")&&!GS.ledgeOn){ afterPiece3(); return; }
         say(null,"The roof. Rain in his collar within three steps. The city below is a rumor of light through cloud.",5400);
-        setObjective("The <b>music box</b>, in the middle of the roof. Start there."); });
+        setObjective("The <b>music box</b>, under the lights in the middle of the roof. Start there."); });
     } else { AU.rattle(); say(null,"Locked. TERRACE — the key from the boxes."); }
   });
 });
 /* ════════ ZONE: TERRACE (beats 16–17) ════════ */
 let nodes=[], tankWater=null, valves=[], ledgeSpot=null, piece3Mesh=null, note3Mesh=null, musicBox=null;
-inZone("terrace",()=>{
-  const ox=700;
-  floorPlane(ox+10,7,20,14,TEX.concrete,1.3,0x6a6a70);
-  const parMat=(len)=>{ const t2=TEX.brickExt.clone(); t2.needsUpdate=true; t2.wrapS=t2.wrapT=THREE.RepeatWrapping;
-    t2.repeat.set(len*.55,.75); return new THREE.MeshLambertMaterial({map:t2}); };
-  const par=(x1,x2,z)=>{ const p=box(x2-x1,1.1,.3,parMat(x2-x1)); p.position.set((x1+x2)/2,.55,z); scene.add(p); };
-  const parz=(z1,z2,x)=>{ const p=box(.3,1.1,z2-z1,parMat(z2-z1)); p.position.set(x,.55,(z1+z2)/2); scene.add(p); };
-  par(ox,ox+20,.15); par(ox,ox+20,13.85); parz(0,14,ox+.15); parz(0,14,ox+19.85);
-  addCollider(ox+10,.15,20,.4); addCollider(ox+10,13.85,20,.4); addCollider(ox+.15,7,.4,14); addCollider(ox+19.85,7,.4,14);
-  // ══ THE CITY — real 3D skyline past the parapet (window textures ignore fog so the city reads through the rain) ══
-  { // three facade textures: dark buildings, ~15% windows lit amber/cool
-    const facade=(seed)=>{ const t2=tex((g,s)=>{ g.fillStyle="#07080c"; g.fillRect(0,0,s,s);
-        let rnd=seed; const R=()=>{ rnd=(rnd*16807)%2147483647; return rnd/2147483647; };
-        for(let r2=0;r2<10;r2++)for(let c2=0;c2<8;c2++){ const v=R();
-          if(v<.11){ g.fillStyle=v<.03?"#98a4b4":"#c8a25a"; g.globalAlpha=.55+R()*.45; }
-          else { g.fillStyle="#101318"; g.globalAlpha=1; }
-          g.fillRect(6+c2*15,6+r2*12,9,7); }
-        g.globalAlpha=1; },128);
-      t2.wrapS=t2.wrapT=THREE.RepeatWrapping; return t2; };
-    const fTex=[facade(12345),facade(67890),facade(24680)];
-    const darkTop=new THREE.MeshBasicMaterial({color:0x05060a,fog:false});
-    let rnd=13579; const R=()=>{ rnd=(rnd*16807)%2147483647; return rnd/2147483647; };
-    const cx=ox+10, cz2=7;
-    const rings=[[14,20,.5,3.5,9],[23,33,2,7.5,10],[38,58,5,12,9]];
-    rings.forEach(([r1,r2,hMin,hMax,count],ring)=>{
-      for(let i2=0;i2<count;i2++){ const a=(i2/count)*Math.PI*2 + R()*.5 + ring*.35;
-        const rad=r1+R()*(r2-r1);
-        const bw=3.5+R()*5.5, bd=3.5+R()*4.5, top=hMin+R()*(hMax-hMin), bh=top+26;
-        const t3=fTex[(R()*3)|0].clone(); t3.needsUpdate=true; t3.repeat.set(Math.max(1,bw/3),Math.max(1,bh/4.5));
-        const fm=new THREE.MeshBasicMaterial({map:t3,fog:false});
-        const bld=new THREE.Mesh(new THREE.BoxGeometry(bw,bh,bd),[fm,fm,darkTop,darkTop,fm,fm]);
-        bld.position.set(cx+Math.cos(a)*rad, top-bh/2, cz2+Math.sin(a)*rad);
-        bld.rotation.y=R()*.4-.2; scene.add(bld); } });
-    // one landmark tower with a blinking red aviation beacon
-    { const t3=fTex[0].clone(); t3.needsUpdate=true; t3.repeat.set(2,8);
-      const fm=new THREE.MeshBasicMaterial({map:t3,fog:false});
-      const tower=new THREE.Mesh(new THREE.BoxGeometry(6,44,6),[fm,fm,darkTop,darkTop,fm,fm]);
-      tower.position.set(cx+34,14-22,cz2-30); scene.add(tower);
-      const bcn=new THREE.Mesh(new THREE.SphereGeometry(.5,8,8),new THREE.MeshBasicMaterial({color:0xd83030,fog:false}));
-      bcn.position.set(cx+34,14.6,cz2-30); fxBeacons.push(bcn); scene.add(bcn); }
-    // horizon: the city's glow, an even amber-grey band all around (fog-immune, behind the buildings)
-    { const glowTex=tex((g,s)=>{ const grd=g.createLinearGradient(0,s,0,0);
-        grd.addColorStop(0,"rgba(56,38,24,.9)"); grd.addColorStop(.45,"rgba(30,24,22,.45)"); grd.addColorStop(1,"rgba(0,0,0,0)");
-        g.fillStyle=grd; g.fillRect(0,0,s,s); },128);
-      const glow=new THREE.Mesh(new THREE.CylinderGeometry(78,78,16,24,1,true),
-        new THREE.MeshBasicMaterial({map:glowTex,transparent:true,side:THREE.BackSide,fog:false,depthWrite:false}));
-      glow.position.set(cx,3,cz2); scene.add(glow); } }
-  const td=mkDoor(plateTex("ROOF")); td.position.set(ox+.2,0,7.55); td.rotation.y=Math.PI/2; scene.add(td);
-  doorTrim(ox+.2,0,7.55,Math.PI/2,new THREE.MeshLambertMaterial({map:TEX.concrete}));
-  addCollider(ox+.3,7,.4,1.4);
-  interact(td,"Back inside",()=>{
-    // Ending B: he has decided. Skip the corridor and the lift he has already walked.
-    if(GS.ending==="B"&&!GS.piece4){ travel("floor8",1.4,1.1,-Math.PI/2,()=>{ AU.windStop();
-      say(null,"He does not remember the stairs, or the lift. Only the eighth floor arriving, and his own door at the end of it.",5600); }); return; }
-    travel("floor21",616,4.6,Math.PI,()=>{ AU.windStop(); AU.tenantsStart(); }); });
-  const no2=new THREE.Mesh(new THREE.PlaneGeometry(.2,.26),new THREE.MeshLambertMaterial({map:TEX.noteSmall}));
-  no2.position.set(ox+.46,1.4,8.62); no2.rotation.y=Math.PI/2; scene.add(no2);
-  interact(no2,"A note, taped inside the door",()=>{ AU.paper(); collectNote("n_order2"); openNote("n_order2"); });
-  wall("z",6,8.2,ox+1.1,2.4,0,TEX.brickExt,.6,.14); wall("x",ox+.15,ox+1.1,6,2.4,0,TEX.brickExt,.6,.14); wall("x",ox+.15,ox+1.1,8.2,2.4,0,TEX.brickExt,.6,.14);
-  { const roof=box(1.2,.12,2.4,M.metalDark); roof.position.set(ox+.6,2.42,7.1); scene.add(roof); }
-  const meter=group(); { const b=box(.4,.5,.16,M.metalDark); b.position.y=1.4; meter.add(b);
-    const glass=new THREE.Mesh(new THREE.PlaneGeometry(.2,.2),new THREE.MeshBasicMaterial({color:0x1a2a1a})); glass.position.set(0,1.45,.09); meter.add(glass); }
-  at(meter,ox+.7,0,5.6,0); addCollider(ox+.7,5.6,.5,.3);
-  { const conduit=box(.06,1.15,.06,M.metalDark); conduit.position.set(ox+.7,.575,5.7); scene.add(conduit);
-    const jb=box(.14,.12,.08,M.metalDark); jb.position.set(ox+.7,.35,5.72); scene.add(jb); }
-  interact(meter,"The electric meter",()=>say(null,"The dial creeps. Something in this building is still hungry. Below the meter — a glint."));
-  const tank=group(); { const body=new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.1,1.8,12,1,true),new THREE.MeshLambertMaterial({map:TEX.metal,side:THREE.DoubleSide})); body.position.y=2.1; tank.add(body);
-    for(const [lx,lz] of[[-.8,-.8],[.8,-.8],[-.8,.8],[.8,.8]]){ const leg=box(.1,1.2,.1,M.metalDark); leg.position.set(lx,.6,lz); tank.add(leg);} }
-  at(tank,ox+16.5,0,2.5,0); addCollider(ox+16.5,2.5,2.4,2.4);
-  { // Tank access: three full-width treads and one low service deck.
-    const galv=new THREE.MeshLambertMaterial({map:TEX.metal});
-    for(const [sx,top] of[[ox+13.35,.22],[ox+13.78,.44],[ox+14.21,.66]]){
-      const tread=box(.44,top,1.2,galv); tread.position.set(sx,top/2,2.5); scene.add(tread); }
-    const plat=box(1.0,.8,1.25,galv); plat.position.set(ox+14.94,.4,2.5); scene.add(plat);
-    for(const rz of[1.88,3.12]){ const rail=box(1.08,.05,.05,M.metalDark); rail.position.set(ox+14.94,1.28,rz); scene.add(rail);
-      for(const px2 of[ox+14.5,ox+15.38]){ const post=box(.05,.68,.05,M.metalDark); post.position.set(px2,.96,rz); scene.add(post); } }
-    addCollider(ox+14.94,1.82,1.15,.16); addCollider(ox+14.94,3.18,1.15,.16);
-    ZONES.terrace.ground=(x,z)=>{ if(z<1.88||z>3.12||x<ox+13.12||x>ox+15.44)return 0;
-      if(x>=ox+14.5)return .8; if(x>=ox+14.0)return .66; if(x>=ox+13.57)return .44; return .22; }; }
-  tankWater=new THREE.Mesh(new THREE.CylinderGeometry(1.02,1.02,.06,12),new THREE.MeshLambertMaterial({color:0x1a2c34}));
-  tankWater.position.set(ox+16.5,1.35,2.5); scene.add(tankWater);
-  const dotTex=n=>tex((g,s)=>{ g.clearRect(0,0,s,s); g.fillStyle="#d8c890"; for(let i=0;i<n;i++){ g.beginPath(); g.arc(s/2+(i-(n-1)/2)*34,s/2,13,0,7); g.fill(); } },128);
-  [[ox+8,1],[ox+10.5,2],[ox+13,3]].forEach(([x,n])=>{
-    const v=mkValve(); at(v,x,0,1.0,0); addCollider(x,1.0,.4,.4);
-    const d=decal(dotTex(n),.3,.3); d.position.set(x,1.15,1.15); scene.add(d); // dots face the roof, where the player stands
-    v.userData.idx=n; valves.push(v);
-    interact(v,`Valve — ${"•".repeat(n)}`,()=>turnValve(v));
-    const pipe=box(2.5,.06,.06,M.metal); pipe.position.set(x+1.25,.72,.9); scene.add(pipe);
-  });
-  /* ── roof plant: the working clutter of a real flat roof ── */
-  { const galv2=new THREE.MeshLambertMaterial({map:TEX.metal,color:0x9aa0a4});
-    // pipe-run supports so the valve manifold line doesn't hover
-    for(const px2 of[ox+9,ox+11,ox+13,ox+14.9]){ const sup=box(.08,.7,.08,M.metalDark); sup.position.set(px2,.35,.9); scene.add(sup); }
-    // two AC condensers on a steel frame, SE quarter
-    const acFrame=box(2.3,.22,.9,M.metalDark); acFrame.position.set(ox+15.9,.2,10.5); scene.add(acFrame);
-    for(const [ax,ph] of[[ox+15.3,0],[ox+16.5,.4]]){
-      const unit=box(.95,.72,.72,galv2); unit.position.set(ax,.68,10.5); scene.add(unit);
-      const fins=decal(tex((g,s)=>{ g.fillStyle="#3a4044"; g.fillRect(0,0,s,s);
-        g.fillStyle="#262c30"; for(let i=0;i<12;i++)g.fillRect(8,8+i*20,s-16,8);
-        g.beginPath(); g.arc(s/2,s/2,s*.3,0,7); g.strokeStyle="#565e64"; g.lineWidth=5; g.stroke(); },128),.8,.6);
-      fins.position.set(ax,.7,10.13+ph*0); fins.rotation.y=Math.PI; scene.add(fins); }
-    addCollider(ox+15.9,10.5,2.5,1.1);
-    interact(acFrame,"The condenser units",()=>say(null,"One fan turns, slow as a second hand. Twenty-one floors of other people's warm rooms, exhaled here."));
-    // refrigeration line from condensers dropping over the parapet edge, per the drawings
-    const rl=box(.05,.05,3.1,M.metalDark); rl.position.set(ox+16.9,.42,12.1); scene.add(rl);
-    for(const sz3 of[11.1,12.9]){ const sup2=box(.07,.42,.07,M.metalDark); sup2.position.set(ox+16.9,.21,sz3); scene.add(sup2); }
-    const rld=box(.05,1.0,.05,M.metalDark); rld.position.set(ox+16.9,.9,13.62); scene.add(rld);
-    // mushroom vents
-    for(const [vx,vz] of[[ox+4.5,9.5],[ox+12,11.5],[ox+7,3.8]]){
-      const stem=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,.5,8),galv2); stem.position.set(vx,.25,vz); scene.add(stem);
-      const cap=new THREE.Mesh(new THREE.ConeGeometry(.26,.18,8),M.metalDark); cap.position.set(vx,.56,vz); scene.add(cap);
-      addCollider(vx,vz,.35,.35); }
-    // bent TV aerial on the stair-shed roof
-    { const mast=box(.04,1.6,.04,M.metalDark); mast.position.set(ox+.6,3.1,7.1); mast.rotation.z=.06; scene.add(mast);
-      interact(mast,"A bent television aerial",()=>say(null,"Every aerial on this roof leans toward a broadcast that ended years ago. Nobody has climbed up to correct them."),{range:4.5});
-      for(let i=0;i<3;i++){ const bar=box(.7-i*.18,.03,.03,M.metalDark); bar.position.set(ox+.6+.05*i,3.5+i*.22,7.1); bar.rotation.y=.3; bar.rotation.z=.05*i; scene.add(bar); } }
-    // felt seams + standing water + a gravel patch
-    for(const sx2 of[ox+3,ox+6,ox+9,ox+12,ox+15]){ const seam=new THREE.Mesh(new THREE.PlaneGeometry(.09,13.4),
-      new THREE.MeshLambertMaterial({color:0x191b1d})); seam.rotation.x=-Math.PI/2; seam.position.set(sx2,.012,7); scene.add(seam); }
-    for(const [px3,pz3,pr] of[[ox+5,10.8,.8],[ox+13.5,6.2,.55]]){
-      const pd=new THREE.Mesh(new THREE.CircleGeometry(pr,12),new THREE.MeshBasicMaterial({color:0x121a20}));
-      pd.rotation.x=-Math.PI/2; pd.position.set(px3,.015,pz3); scene.add(pd); }
-    { const gravel=new THREE.Mesh(new THREE.PlaneGeometry(2.6,2.0),new THREE.MeshLambertMaterial({map:tex((g,s)=>{
-        g.fillStyle="#2e2c28"; g.fillRect(0,0,s,s);
-        for(let i=0;i<500;i++){ g.fillStyle=["#3a3832","#26241f","#44423a"][i%3]; g.fillRect(Math.random()*s,Math.random()*s,3,2); } },128)}));
-      gravel.rotation.x=-Math.PI/2; gravel.position.set(ox+3.2,.014,11.9); scene.add(gravel); } }
-  const crate=mkCrate24(); crate.position.set(ox+10,0,7); crate.userData.lid.visible=false;
-  crate.traverse(o=>{ if(o.isMesh)o.material=new THREE.MeshLambertMaterial({map:o.material.map,color:0x9a8d7a}); });
-  scene.add(crate); addCollider(ox+10,7,.7,.7);
-  musicBox=mkMusicBox(); musicBox.position.set(ox+10,.6,7); scene.add(musicBox);
-  interact(musicBox,"The music box",()=>{
-    if(GS.piece3){ say(null,"It has played what it kept. The cylinder rests."); return; }
-    say(null,"Four brass chimes, scattered over the roof, each wired back to this box. Follow the cables. It wants them struck in her order — and one of them is under water that is not there yet.",6400);
-    if(!GS.tankFilled)setObjective("Follow the <b>cables</b> from the music box to four chimes. One is in the <b>dry tank</b>: the three <b>valves</b> fill it.");
-  });
-  piece3Mesh=mkPiece(); piece3Mesh.position.set(ox+10.35,.66,7); piece3Mesh.visible=false; scene.add(piece3Mesh);
-  const ix3=interact(piece3Mesh,"Take Puzzle Piece #3",()=>{ piece3Mesh.visible=false; ix3.enabled=false; GS.piece3=true; give("piece3","🧩","PIECE #3"); afterPiece3(); }); ix3.enabled=false; piece3Mesh.userData.ix3=ix3;
-  note3Mesh=new THREE.Mesh(new THREE.PlaneGeometry(.2,.26),new THREE.MeshLambertMaterial({map:TEX.noteSmall}));
-  note3Mesh.rotation.x=-Math.PI/2; note3Mesh.rotation.z=.5; note3Mesh.position.set(ox+9.5,.02,7.55); note3Mesh.visible=false; scene.add(note3Mesh);
-  const ixn3=interact(note3Mesh,"A note, hidden under the box",()=>{ AU.paper(); collectNote("n_terrace"); openNote("n_terrace"); }); ixn3.enabled=false; note3Mesh.userData.ixn3=ixn3;
-  /* four chimes — order: meter(2) → wall(1) → tank(3) → parapet(4) */
-  const mkN=(x,y,z,ry,idx,label)=>{ const n=mkNode(); n.position.set(x,y,z); n.rotation.y=ry; scene.add(n);
-    n.userData.idx=idx; nodes.push(n); interact(n,label,()=>strikeNode(n)); return n; };
-  mkN(ox+6,1.05,.32,0,1,"A brass chime, set into the wall");
-  mkN(ox+.7,.35,5.78,0,2,"A brass chime, under the meter");
-  const n3=mkN(ox+16.5,1.42,2.5,0,3,"A chime, deep in the tank"); n3.userData.float=true;
-  mkN(ox+17.5,1.02,13.62,Math.PI,4,"A chime, where the parapet turns");
-  ledgeSpot=group();
-  { const cush=box(1.3,.14,.5,new THREE.MeshLambertMaterial({color:0x4a3a30})); cush.position.y=1.27; ledgeSpot.add(cush);
-    const glow=new THREE.PointLight(0xc8a070,.6,3,1.8); glow.position.set(0,1.5,0); ledgeSpot.add(glow); }
-  ledgeSpot.position.set(ox+16,0,13.7); ledgeSpot.visible=false; scene.add(ledgeSpot);
-  const ixL=interact(ledgeSpot,"The ledge — their spot",()=>ledgeChoice()); ixL.enabled=false; ledgeSpot.userData.ix=ixL;
-  // ══ roof furniture — a working roof, and their corner of it ══
-  // parapet coping stones
-  { const copM=new THREE.MeshLambertMaterial({map:TEX.concrete});
-    const c1=box(20.1,.09,.4,copM); c1.position.set(ox+10,1.14,.15); scene.add(c1);
-    const c2=box(20.1,.09,.4,copM); c2.position.set(ox+10,1.14,13.85); scene.add(c2);
-    const c3=box(.4,.09,14.1,copM); c3.position.set(ox+.15,1.14,7); scene.add(c3);
-    const c4=box(.4,.09,14.1,copM); c4.position.set(ox+19.85,1.14,7); scene.add(c4); }
-  // tar seams across the roof membrane
-  for(const [sx2,sz2,sw2,sr2] of[[ox+6,7,13.6,Math.PI/2],[ox+14,7,13.6,Math.PI/2],[ox+10,4.5,19.4,0],[ox+10,10,19.4,0]]){
-    const seam=new THREE.Mesh(new THREE.PlaneGeometry(sw2,.16),new THREE.MeshBasicMaterial({color:0x0a0b0d,transparent:true,opacity:.55,depthWrite:false}));
-    seam.rotation.x=-Math.PI/2; seam.rotation.z=sr2; seam.position.set(sx2,.018,sz2); scene.add(seam); }
-  // rain puddles
-  { const pt2=tex((g,s)=>{ g.clearRect(0,0,s,s); const r=g.createRadialGradient(s/2,s/2,4,s/2,s/2,s/2);
-      r.addColorStop(0,"rgba(40,50,68,.8)"); r.addColorStop(.7,"rgba(22,28,40,.45)"); r.addColorStop(1,"rgba(0,0,0,0)");
-      g.fillStyle=r; g.beginPath(); g.ellipse(s/2,s/2,s*.48,s*.32,0,0,7); g.fill(); },128);
-    for(const [px2,pz2,pw2,pr2] of[[ox+7.5,3.5,2.6,.4],[ox+13,9.5,2.0,1.7],[ox+4,8.8,1.7,2.6]]){
-      const pd=new THREE.Mesh(new THREE.PlaneGeometry(pw2,pw2*.55),new THREE.MeshBasicMaterial({map:pt2,transparent:true,depthWrite:false}));
-      pd.rotation.x=-Math.PI/2; pd.rotation.z=pr2; pd.position.set(px2,.015,pz2); scene.add(pd); } }
-  // HVAC unit + ducting toward the bulkhead
-  { const hv=box(2.2,1.25,1.5,M.metal); hv.position.set(ox+5,.62,11.2); scene.add(hv); addCollider(ox+5,11.2,2.3,1.6);
-    const fanT=tex((g,s)=>{ g.fillStyle="#14161a"; g.fillRect(0,0,s,s); g.strokeStyle="#3a4048"; g.lineWidth=4;
-      g.beginPath(); g.arc(s/2,s/2,44,0,7); g.stroke(); for(let i2=0;i2<5;i2++){ g.save(); g.translate(s/2,s/2); g.rotate(i2*1.256);
-        g.fillStyle="#22262c"; g.fillRect(-5,-40,10,34); g.restore(); } },128);
-    for(const fx2 of[-.55,.55]){ const fan=new THREE.Mesh(new THREE.PlaneGeometry(.85,.85),new THREE.MeshBasicMaterial({map:fanT}));
-      fan.rotation.x=-Math.PI/2; fan.position.set(ox+5+fx2,1.26,11.2); scene.add(fan); }
-    const duct=box(2.6,.4,.4,M.metalDark); duct.position.set(ox+3.2,1.0,9.8); duct.rotation.y=.7; scene.add(duct); }
-  // capped vent pipes
-  for(const [vx2,vz2,vh2] of[[ox+8.5,9.8,.9],[ox+13,4.5,.6],[ox+3,3.5,1.2]]){
-    const vp=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,vh2,8),M.metalDark); vp.position.set(vx2,vh2/2,vz2); scene.add(vp);
-    const cap=new THREE.Mesh(new THREE.CylinderGeometry(.2,.2,.08,8),M.metal); cap.position.set(vx2,vh2+.05,vz2); scene.add(cap);
-    addCollider(vx2,vz2,.35,.35); }
-  // antenna mast, guy wires, our own small red bulb
-  { const mast=new THREE.Mesh(new THREE.CylinderGeometry(.05,.07,4.2,7),M.metalDark); mast.position.set(ox+2.2,2.1,12.3); scene.add(mast);
-    addCollider(ox+2.2,12.3,.3,.3);
-    for(const [gx2,gz2] of[[1.2,.7],[-1.0,.9],[.2,-1.3]]){ const wire=box(.015,.015,4.4,new THREE.MeshLambertMaterial({color:0x111114}));
-      wire.position.set(ox+2.2+gx2/2,2.0,12.3+gz2/2); wire.lookAt(ox+2.2+gx2,0,12.3+gz2); wire.rotateX(Math.PI/2); scene.add(wire); }
-    const cross=box(.7,.03,.03,M.metal); cross.position.set(ox+2.2,3.9,12.3); scene.add(cross);
-    const bulb=new THREE.Mesh(new THREE.SphereGeometry(.05,7,7),new THREE.MeshBasicMaterial({color:0xd83030}));
-    bulb.position.set(ox+2.2,4.25,12.3); fxBeacons.push(bulb); scene.add(bulb); }
-  // clothesline — hers, never taken in
-  { for(const px2 of[ox+11.4,ox+14.6]){ const pole=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,1.9,7),M.metalDark);
-      pole.position.set(px2,.95,11.4); scene.add(pole); addCollider(px2,11.4,.25,.25);
-      const tbar=box(.7,.04,.04,M.metalDark); tbar.position.set(px2,1.85,11.4); scene.add(tbar); }
-    const line=box(3.2,.015,.015,new THREE.MeshLambertMaterial({color:0x2a2a2c})); line.position.set(ox+13,1.83,11.4); scene.add(line);
-    const clothM=[0x39404a,0x4a4038,0x333a36];
-    [[ox+12.1,.5,.62],[ox+13.2,.42,.5],[ox+14.1,.55,.7]].forEach(([cx2,cw2,ch2],i2)=>{
-      const cl2=new THREE.Mesh(new THREE.PlaneGeometry(cw2,ch2),new THREE.MeshLambertMaterial({color:clothM[i2],side:THREE.DoubleSide}));
-      cl2.position.set(cx2,1.82-ch2/2,11.4); cl2.rotation.y=.06*(i2-1); scene.add(cl2); }); }
-  // a dead string of fairy lights along the south parapet by their spot — one bulb still tries
-  { const cord=box(2.4,.02,.02,new THREE.MeshLambertMaterial({color:0x16130f})); cord.position.set(ox+13.9,1.19,13.6); scene.add(cord);
-    for(let i2=0;i2<6;i2++){ const dead=new THREE.Mesh(new THREE.SphereGeometry(.035,6,6),
-        new THREE.MeshBasicMaterial({color:0x241c14})); dead.position.set(ox+12.9+i2*.44,1.13,13.6); scene.add(dead);
-      if(i2===4)fxFairyBulb=dead; } }
-  // warm caged bulb over the roof door bulkhead
-  { const fix2=box(.16,.12,.16,M.metalDark); fix2.position.set(ox+1.2,2.3,7.1); scene.add(fix2);
-    const bl2=new THREE.PointLight(0xc89050,.55,4.5,1.8); bl2.position.set(ox+1.25,2.1,7.1); scene.add(bl2); }
-  const wl=new THREE.PointLight(0x6a7488,.45,22,1.2); wl.position.set(ox+10,4,7); scene.add(wl);
-});
+/* the terrace is built further down, with the sky and city it needs: see ZONE: TERRACE */
 /* ambient FX ticker: steam drift · neon buzz · beacon blink · fairy flicker (cheap, 9 fps) */
 setInterval(()=>{ try{
   const t2=performance.now()/1000;
@@ -2815,7 +2621,7 @@ function solveMusicBox(){
 }
 let ledgeLamp=null;
 function lightLedge(){ if(ledgeLamp){ ledgeLamp.l.intensity=1.5; ledgeLamp.m.material.color.setHex(0xf6c878); ledgeLamp.beam.visible=true; } }
-const LEDGE={x:716,z:13.7};
+const LEDGE={x:719.6,z:17.7};
 function afterPiece3(){
   GS.ledgeOn=true; ledgeSpot.visible=true; ledgeSpot.userData.ix.enabled=true; lightLedge();
   AU.drone(); dread=Math.min(1,dread+.3);
@@ -2992,13 +2798,13 @@ inZone("metro",()=>{
   const doorHeader=box(1.3,.14,.1,M.metalDark); doorHeader.position.set(0,2.2,-1.02); trainGrp.add(doorHeader);
   for(let c=0;c<3;c++)put(trainGrp,box(8.6,.16,.05,lam(0x7a3a2a)),c*9-9,1.08,-1.09);     // oxblood waistband: not the line he came in on
   dressTrain(trainGrp,{cars:[-9,0,9],carLen:8.6,hz:1.1,roofY:2.44,doors:[0],seats:[-11.7,-9,-6.3,-2.7,0,2.7,6.3,9,11.7],seatY:.86,seatZ:.38,blind:"HER TOWN"});
-  trainGrp.position.set(ox+42,0,8); trainGrp.userData.arriving=false;
+  trainGrp.position.set(ox+42,0,8); fitTrain(trainGrp); trainGrp.userData.arriving=false;
   addCollider(ox+9,8,8,2.0,"metroTrain");
   addCollider(ox+19,8,8,2.0,"metroTrain");
   boardDoor=new THREE.Mesh(new THREE.PlaneGeometry(1.2,2.2),new THREE.MeshBasicMaterial({color:0x181a20}));
   boardDoor.position.set(ox+14,1.2,6.85); boardDoor.rotation.y=Math.PI; boardDoor.visible=false; scene.add(boardDoor);
   const ixB=interact(boardDoor,"Board the train",()=>{
-    player.x=ox+14; player.z=7.05; player.floorY=.58; player.yaw=Math.PI;
+    player.x=ox+14; player.z=7.05; player.floorY=TRAIN_FLOOR; player.yaw=Math.PI;
     boardDoor.visible=false; ixB.enabled=false; trainInteriorDoor.visible=true; trainInteriorDoor.userData.ix.enabled=true;
     say(null,"Inside, the train is warm and almost ordinary. The seats are damp with rain, and every window shows the same tunnel.",4800);
   }); ixB.enabled=false; boardDoor.userData.ix=ixB;
@@ -3008,7 +2814,7 @@ inZone("metro",()=>{
   // The final carriage has its own floor height. Without this, the player is
   // teleported inside and immediately sinks back to platform level.
   ZONES.metro.ground=(x,z)=>{
-    if(x>=ox+13.0&&x<=ox+15.0&&z>=6.9&&z<=7.85)return .58;
+    if(x>=ox+13.0&&x<=ox+15.0&&z>=6.9&&z<=7.85)return TRAIN_FLOOR;
     return 0;
   };
 });
@@ -3032,7 +2838,7 @@ function metroLogic(dt){
 function endingB(){
   // he sits; the doors close; the platform slides away; the tunnel; and then light that is not a lamp
   document.exitPointerLock?.(); buildRideFx(); GS.ending="B";
-  const seat=()=>[trainGrp.position.x+2.7,.58+1.1,trainGrp.position.z+.3], e=eyeNow(), s0=seat(), f=$("fader"); let scroll=0, white=false;
+  const seat=()=>[trainGrp.position.x+2.7,TRAIN_FLOOR+1.2,trainGrp.position.z+.3], e=eyeNow(), s0=seat(), f=$("fader"); let scroll=0, white=false;
   try{ AU.doorChime(); }catch(e2){}
   later(()=>{ try{ AU.trainStart(); }catch(e2){} say(null,"The doors close on the platform, and on the year.",4600); },2600);
   later(()=>say(null,"She is at the far end of the carriage. She does not turn round. She does not need to.",5600),8200);
@@ -3047,7 +2853,7 @@ function endingB(){
   },{step:(t,dt)=>{
     if(t>3.4){ const v=Math.min(13,(t-3.4)*1.7); trainGrp.position.x-=v*dt; scroll+=v*dt; }              // pulling out
     if(t>2.4){ const p=seat(); cine.keys.forEach(k=>{ if(k[0]>=2.4){ k[1]=p[0]; k[3]=p[2]; } }); }
-    figure.visible=t>7; figure.position.set(trainGrp.position.x-3.3,.58,trainGrp.position.z-.1);
+    figure.visible=t>7; figure.position.set(trainGrp.position.x-3.3,TRAIN_FLOOR,trainGrp.position.z-.1);
     const g=ride.fx, sx=seat()[0]; g.visible=sx<798; g.position.set(sx,0,trainGrp.position.z); ride.wall.material.map.offset.x=(scroll/6.4)%1;
     ride.lamps.forEach((l,i)=>{ l.position.x=((i*8+scroll)%64+64)%64-32; });
     const near=ride.lamps.reduce((a,l)=>Math.abs(l.position.x)<Math.abs(a.position.x)?l:a); ride.glow.position.set(near.position.x,2.0,-1.3); ride.glow.intensity=g.visible?1.5*Math.max(0,1-Math.abs(near.position.x)/5):0;
@@ -3473,87 +3279,179 @@ inZone("floor21",()=>{ const ox=600;
   pl(0x6a86b0,.5,6,ox+16.6,2.6,4.8);                                    // night coming down the stairwell from the roof
 });
 
-/* ── 10 · TERRACE: twenty-one floors up, the whole city laid out and none of it his ── */
-inZone("terrace",()=>{ const ox=700;
-  mkSky(ox+10,7,{ringY:-58,ringH:100,ringR:200,moonX:420,moonY:96});
-  const moon=new THREE.DirectionalLight(0x7088b4,.55); moon.position.set(ox+2,12,-4); moon.target.position.set(ox+10,0,7); scene.add(moon); scene.add(moon.target);
-  wetGround("terrace",.55,34);
-  pl(0xc88848,.5,9,ox+10,1.2,13.2);                                     // the city's glow coming over the parapet
-  // the streets, far below: a grid of sodium and moving headlights you only see by going to the edge
-  { const c=document.createElement("canvas"); c.width=c.height=512; const g=c.getContext("2d"); g.fillStyle="#05060a"; g.fillRect(0,0,512,512);
+/* ════════ ZONE: TERRACE (beats 16–17) — rebuilt as one designed level ════════
+   A 24 x 18 m roof. West: the stair hut he comes out of. South: a chimney stack, the valve bank and
+   the water tank. Centre: a pergola she strung with lights, the music box under it, a bench facing
+   the city. North-east: the ledge, with nothing in front of it. Every puzzle piece is mounted on a
+   real structure, and brass cables on the roof lead from the music box to each chime. */
+inZone("terrace",()=>{ const ox=700, W=24, D=18;
+  const brick=(w,h,d,tile=.5)=>box(w,h,d,surf(TEX.brickExt,Math.max(w,d),h,tile));
+  const stone=lam(0x6a6a62), galv=new THREE.MeshLambertMaterial({map:TEX.metal}), galvD=new THREE.MeshLambertMaterial({map:TEX.metal,color:0x8a9094});
+  const add=(m,x,y,z,ry=0)=>{ m.position.set(ox+x,y,z); m.rotation.y=ry; scene.add(m); return m; };
+  const lamp=(x,y,z,col,i,dist)=>pl(col,i,dist,ox+x,y,z);
+
+  /* ── deck and parapet ── */
+  wetMat(floorPlane(ox+W/2,D/2,W,D,TEX.concrete,1.3,0x6a6a70).material,.5,32);
+  for(const [x,z,w,d] of[[W/2,.15,W,.3],[W/2,D-.15,W,.3],[.15,D/2,.3,D],[W-.15,D/2,.3,D]]){
+    add(brick(w,1.1,d,.55),x,.55,z); add(box(w+.12,.08,d+.12,stone),x,1.14,z); addCollider(ox+x,z,w+.1,d+.1); }
+  for(let x=3;x<W;x+=3)add(box(.09,.006,D-.7,lam(0x191b1d)),x,.006,D/2);                      // felt seams
+  for(const [x,z,w,d] of[[8,5,3.2,1.6],[16.5,12.5,2.6,1.4],[21,8.5,2.2,1.8],[4.5,13.2,2.4,1.2]]){ const p=new THREE.Mesh(new THREE.PlaneGeometry(w,d),wetMat(lam(0x0e1218,{transparent:true,opacity:.8}),1,90));
+    p.rotation.x=-Math.PI/2; p.position.set(ox+x,.013,z); scene.add(p); }
+
+  /* ── WEST: the stair hut, and a door you can see ── */
+  { add(brick(3.2,3.0,3.6),1.9,1.5,9); add(box(3.6,.14,4.0,M.metalDark),1.9,3.07,9); addCollider(ox+1.9,9,3.2,3.6);
+    const td=mkDoor(plateTex("ROOF")); add(td,3.53,0,9.45,Math.PI/2); doorTrim(ox+3.56,0,9,Math.PI/2,lam(0x3a3a36));
+    add(box(.5,.06,1.3,stone),3.75,.03,9);                                                    // threshold
+    add(box(.06,.5,1.5,lam(0x14181c)),3.56,2.62,9);                                           // transom
+    add(decal(tex((g,s)=>{ g.fillStyle="#14181c"; g.fillRect(0,0,s,s); g.fillStyle="#d8c890"; g.font="bold 44px Courier New"; g.textAlign="center"; g.fillText("STAIRS",s/2,s/2+14); },256),1.2,.36),3.6,2.62,9,Math.PI/2).material.map.repeat.set(1,.4);
+    add(box(.2,.14,.3,M.metalDark),3.66,2.95,9); glowPlane(.2,.1,0xf0c070,ox+3.77,2.9,9,Math.PI/2); lamp(4.3,2.6,9,0xe0a858,1.5,9);   // bulkhead lamp over the door
+    interact(td,"Back inside",()=>{
+      if(GS.ending==="B"&&!GS.piece4){ travel("floor8",1.4,1.1,-Math.PI/2,()=>{ AU.windStop();     // Ending B: skip the corridor and lift he has already walked
+        say(null,"He does not remember the stairs, or the lift. Only the eighth floor arriving, and his own door at the end of it.",5600); }); return; }
+      travel("floor21",616,4.6,Math.PI,()=>{ AU.windStop(); AU.tenantsStart(); }); });
+    const no2=new THREE.Mesh(new THREE.PlaneGeometry(.22,.28),new THREE.MeshLambertMaterial({map:TEX.noteSmall})); add(no2,3.52,1.45,7.9,Math.PI/2);
+    add(box(.04,.04,.01,lam(0x8a2a22)),3.525,1.57,7.9,Math.PI/2);                             // the pin
+    interact(no2,"A note, taped inside the door",()=>{ AU.paper(); collectNote("n_order2"); openNote("n_order2"); });
+    // the electric meter on the hut's south face, with her second chime under it
+    const meter=group(); put(meter,box(.44,.54,.16,M.metalDark),0,0,0); put(meter,new THREE.Mesh(new THREE.PlaneGeometry(.22,.22),new THREE.MeshBasicMaterial({color:0x2a4a2a})),0,.06,-.085,0,Math.PI,0);
+    put(meter,box(.3,.06,.02,lam(0x8a8478)),0,-.16,-.085); add(meter,1.9,1.5,7.1); add(box(.06,1.3,.06,M.metalDark),1.9,.6,7.15);
+    interact(meter,"The electric meter",()=>say(null,"The dial creeps. Something in this building is still hungry. Below the meter — a glint."));
+    add(box(.2,.12,.26,M.metalDark),1.9,2.5,7.05); lamp(1.9,2.2,6.5,0xb8c8a8,.9,6);
+    const mast=add(box(.04,1.8,.04,M.metalDark),1.2,4.0,9.6); mast.rotation.z=.07;
+    for(let i=0;i<3;i++){ const bar=add(box(.8-i*.2,.03,.03,M.metalDark),1.2+.05*i,4.3+i*.24,9.6,.3); bar.rotation.z=.07; }
+    interact(mast,"A bent television aerial",()=>say(null,"Every aerial on this roof leans toward a broadcast that ended years ago. Nobody has climbed up to correct them."),{range:5}); }
+
+  /* ── SOUTH: chimney stack, valve bank, water tank ── */
+  { add(brick(1.5,3.3,1.1),5.9,1.65,.85); add(box(1.7,.12,1.3,stone),5.9,3.36,.85); for(const a of[-.35,.35])add(rod(.16,.2,.5,8,lam(0x6a3a2a)),5.9+a,3.66,.85); addCollider(ox+5.9,.85,1.5,1.1); }
+  const dotTex=n=>tex((g,s)=>{ g.clearRect(0,0,s,s); g.fillStyle="#e8d8a0"; for(let i=0;i<n;i++){ g.beginPath(); g.arc(s/2+(i-(n-1)/2)*34,s/2,13,0,7); g.fill(); } },128);
+  { // a steel board on posts behind the valves: what they are, and a mark over each
+    add(box(6.6,1.0,.06,lam(0x23282c)),12.5,1.95,.42); for(const x of[9.4,12.5,15.6])add(box(.08,2.5,.08,M.metalDark),x,1.25,.46);
+    const t=add(decal(tex((g,s)=>{ g.clearRect(0,0,s,s); g.fillStyle="#c8b878"; g.font="bold 26px Courier New"; g.textAlign="center"; g.fillText("TANK FILL · OPEN IN ORDER",s/2,s/2+9); },512),5.6,.3),12.5,2.28,.46); t.material.map.repeat.set(1,.12); t.material.map.offset.set(0,.44);
+    add(box(.3,.14,.2,M.metalDark),12.5,2.56,.5); glowPlane(.24,.08,0xf0c070,ox+12.5,2.5,.62); lamp(12.5,2.3,1.4,0xd8a860,1.3,8);
+    [[10,1],[12.5,2],[15,3]].forEach(([x,n])=>{ const v=mkValve(); at(v,ox+x,0,1.0,0); addCollider(ox+x,1.0,.4,.4);
+      add(decal(dotTex(n),.62,.62),x,1.78,.47); v.userData.idx=n; valves.push(v); interact(v,`Valve — ${"•".repeat(n)}`,()=>turnValve(v)); });
+    add(box(9.3,.1,.1,M.metal),13.4,.22,.72); for(const x of[9.4,11.2,13.8,16.4])add(box(.08,.22,.08,M.metalDark),x,.11,.72);   // manifold along the parapet...
+    add(box(.1,.1,1.9,M.metal),18.0,.22,1.62); add(box(.6,.1,.1,M.metal),18.3,.22,2.5); add(box(.1,1.1,.1,M.metal),18.6,.7,2.5); }   // ...and into the tank
+  { const TX=19.6, TZ=2.6, tank=group();
+    put(tank,new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.2,1.6,14,1,true),new THREE.MeshLambertMaterial({map:TEX.metal,side:THREE.DoubleSide})),0,2.0,0);
+    put(tank,rod(1.2,1.2,.06,14,galvD),0,1.2,0); for(const y of[1.3,2.0,2.7])put(tank,new THREE.Mesh(new THREE.TorusGeometry(1.21,.03,5,18),M.metalDark),0,y,0,Math.PI/2);
+    for(const [lx,lz] of[[-.85,-.85],[.85,-.85],[-.85,.85],[.85,.85]])put(tank,box(.12,1.2,.12,M.metalDark),lx,.6,lz);
+    for(const a of[0,Math.PI/2])put(tank,box(2.4,.06,.06,M.metalDark),0,.5,0,0,a+Math.PI/4,0);
+    at(tank,ox+TX,0,TZ,0); addCollider(ox+TX,TZ,2.5,2.5);
+    for(const [sx,top] of[[TX-3.25,.22],[TX-2.82,.44],[TX-2.39,.66]])add(box(.44,top,1.2,galv),sx,top/2,TZ);     // three treads up to a service deck
+    add(box(1.0,.8,1.25,galv),TX-1.66,.4,TZ);
+    for(const rz of[TZ-.62,TZ+.62]){ add(box(1.08,.05,.05,M.metalDark),TX-1.66,1.7,rz); for(const px of[TX-2.1,TX-1.22])add(box(.05,.9,.05,M.metalDark),px,1.25,rz); }
+    addCollider(ox+TX-1.66,TZ-.68,1.15,.16); addCollider(ox+TX-1.66,TZ+.68,1.15,.16);
+    ZONES.terrace.ground=(x,z)=>{ const lx=x-ox; if(z<TZ-.62||z>TZ+.62||lx<TX-3.48||lx>TX-1.16)return 0;
+      if(lx>=TX-2.1)return .8; if(lx>=TX-2.6)return .66; if(lx>=TX-3.03)return .44; return .22; };
+    tankWater=new THREE.Mesh(new THREE.CylinderGeometry(1.14,1.14,.06,14),wetMat(lam(0x1a2c34),.9,70)); add(tankWater,TX,1.35,TZ);
+    add(rod(.05,.07,3.4,6,M.metalDark),TX+1.9,1.7,TZ+1.9); add(box(.3,.12,.2,M.metalDark),TX+1.75,3.35,TZ+1.75); lamp(TX+1.3,3.0,TZ+1.3,0xb8c8d8,1.2,9);   // a work lamp over the tank
+    addCollider(ox+TX+1.9,TZ+1.9,.2,.2);
+    const mkN=(x,y,z,ry,idx,label)=>{ const n=mkNode(); n.position.set(ox+x,y,z); n.rotation.y=ry; scene.add(n); n.userData.idx=idx; nodes.push(n); interact(n,label,()=>strikeNode(n)); return n; };
+    /* four chimes — her order: meter(2) → wall(1) → water(3) → where they sat(4) */
+    mkN(5.9,1.3,1.44,0,1,"A brass chime, set into the chimney wall");
+    mkN(1.9,.78,7.14,Math.PI,2,"A brass chime, under the meter");
+    mkN(TX,1.42,TZ,-Math.PI/2,3,"A chime, deep in the tank").userData.float=true;
+    mkN(18.42,1.25,17.5,Math.PI,4,"A brass chime, by the ledge"); }
+
+  /* ── CENTRE: the pergola, the music box, somewhere to sit ── */
+  { const CX=12, CZ=8.5, wood=M.woodDark;
+    for(const [px,pz] of[[-2.2,-2.2],[2.2,-2.2],[-2.2,2.2],[2.2,2.2]]){ add(box(.14,2.7,.14,wood),CX+px,1.35,CZ+pz); addCollider(ox+CX+px,CZ+pz,.24,.24); }
+    for(const pz of[-2.2,2.2])add(box(5.0,.12,.14,wood),CX,2.7,CZ+pz); for(let i=-2;i<=2;i++)add(box(.1,.1,5.0,wood),CX+i*1.05,2.8,CZ);
+    let nb=0; for(const pz of[-2.2,0,2.2])for(let i=0;i<9;i++){ const t=i/8, x=CX-2.1+t*4.2, y=2.56-Math.sin(t*Math.PI)*.28, on=(nb++)%4!==2;
+      const b=add(new THREE.Mesh(new THREE.SphereGeometry(.05,6,5),new THREE.MeshBasicMaterial({color:on?0xf6c878:0x2a2620})),x,y,CZ+pz); if(nb===6)fxFairyBulb=b;
+      if(i<8)add(box(.54,.012,.012,M.black),x+.26,y-.01,CZ+pz); }
+    lamp(CX,2.3,CZ,0xf0b860,1.5,10); lamp(CX-1.6,2.3,CZ+2,0xf0b860,.5,6); lamp(CX+1.6,2.3,CZ-2,0xf0b860,.5,6);
+    const tb=mkTable(.8,.8,.66,M.wood); at(tb,ox+CX,0,CZ,0); addCollider(ox+CX,CZ,.8,.8);
+    musicBox=mkMusicBox(); add(musicBox,CX,.69,CZ);
+    interact(musicBox,"The music box",()=>{
+      if(GS.piece3){ say(null,"It has played what it kept. The cylinder rests."); return; }
+      say(null,"Four brass chimes, scattered over the roof, each wired back to this box. Follow the cables. It wants them struck in her order — and one of them is under water that is not there yet.",6400);
+      if(!GS.tankFilled)setObjective("Follow the <b>cables</b> from the music box to four chimes. One is in the <b>dry tank</b>: the three <b>valves</b> fill it."); });
+    piece3Mesh=mkPiece(); piece3Mesh.scale.setScalar(1.6); add(piece3Mesh,CX+.3,.72,CZ+.28); piece3Mesh.visible=false;
+    const ix3=interact(piece3Mesh,"Take Puzzle Piece #3",()=>{ piece3Mesh.visible=false; ix3.enabled=false; GS.piece3=true; give("piece3","🧩","PIECE #3"); afterPiece3(); }); ix3.enabled=false; piece3Mesh.userData.ix3=ix3;
+    note3Mesh=new THREE.Mesh(new THREE.PlaneGeometry(.22,.28),new THREE.MeshLambertMaterial({map:TEX.noteSmall})); note3Mesh.rotation.x=-Math.PI/2; note3Mesh.rotation.z=.5; note3Mesh.position.set(ox+CX-.28,.7,CZ-.22); note3Mesh.visible=false; scene.add(note3Mesh);
+    const ixn3=interact(note3Mesh,"A note, hidden under the box",()=>{ AU.paper(); collectNote("n_terrace"); openNote("n_terrace"); }); ixn3.enabled=false; note3Mesh.userData.ixn3=ixn3;
+    const bn=mkBench(); at(bn,ox+CX,0,CZ+3.6,Math.PI); addCollider(ox+CX,CZ+3.6,1.9,.6);
+    interact(bn,"A bench, facing the city",()=>say(null,"Two dents in the slats, side by side. Rain has not filled them in."));
+    for(const [x,z,ry] of[[CX-1.3,CZ-.4,1.9],[CX+1.25,CZ+.5,-1.3]]){ const ch=mkChair(); at(ch,ox+x,0,z,ry); addCollider(ox+x,z,.5,.5); }
+    // brass cables on the roof, from the box to each chime
+    const cm=lam(0x8a7436), seg=(x0,z0,x1,z1)=>add(box(Math.abs(x1-x0)+.06,.03,Math.abs(z1-z0)+.06,cm),(x0+x1)/2,.016,(z0+z1)/2), riser=(x,z,h)=>add(box(.05,h,.05,cm),x,h/2,z);
+    seg(CX,CZ,CX,6.5); seg(CX,6.5,1.9,6.5); seg(1.9,6.5,1.9,7.0); riser(1.9,7.06,.6);                       // → meter
+    seg(5.9,6.5,5.9,1.5); riser(5.9,1.46,1.1);                                                              // → chimney
+    seg(CX,CZ,18.4,CZ); seg(18.4,CZ,18.4,3.6); riser(18.4,3.6,1.2);                                         // → tank
+    seg(18.4,CZ,18.4,17.4); riser(18.4,17.45,1.05);                                                         // → ledge
+    add(box(.34,.08,.34,M.metalDark),CX,.04,CZ+.5); }
+
+  /* ── NORTH-EAST: the ledge. Nothing stands in front of it. ── */
+  { const lx=LEDGE.x-ox, lz=D-.15, st=surf(TEX.concrete,1.8,1,.8,0x9a968c);
+    add(box(1.9,.14,1.25,st),lx,1.21,lz+.3);                                                  // a wide flat stone, proud of the wall
+    for(const sx of[-1.08,1.08]){ add(brick(.34,1.7,.5),lx+sx,.85,lz); add(box(.44,.08,.6,stone),lx+sx,1.74,lz); }
+    for(const [y,h,z,d] of[[.2,.4,lz-.72,.5],[.55,.3,lz-.42,.36]])add(box(1.2,h,d,st),lx,y,z);                // two worn steps up
+    add(box(1.2,.05,.7,lam(0x5a2a2a)),lx-.1,1.305,lz+.15,.08);                                                // her blanket
+    for(const sx of[-.45,.3])add(rod(.04,.035,.09,8,lam(0xb8b0a0)),lx+sx,1.36,lz+.45);                        // two cups
+    const lan=group(); put(lan,box(.16,.04,.16,M.metalDark),0,.02,0); const flame=put(lan,box(.11,.18,.11,new THREE.MeshBasicMaterial({color:0x2a2620})),0,.13,0); put(lan,box(.18,.03,.18,M.metalDark),0,.235,0); add(lan,lx+.75,1.28,lz+.1);
+    const l=lamp(lx+.4,1.9,lz-.5,0xf0b860,0,8);
+    const beam=new THREE.Mesh(new THREE.ConeGeometry(1.7,5.5,12,1,true),new THREE.MeshBasicMaterial({color:0xf0b860,transparent:true,opacity:.055,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide,fog:false}));
+    add(beam,lx,3.4,lz); beam.visible=false; ledgeLamp={l,m:flame,beam};
+    ledgeSpot=group(); put(ledgeSpot,box(1.5,.5,.9,new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false})),0,1.4,.1);   // the whole seat is the thing you use
+    ledgeSpot.position.set(LEDGE.x,0,lz); ledgeSpot.visible=false; scene.add(ledgeSpot);
+    const ixL=interact(ledgeSpot,"The ledge — their spot",()=>ledgeChoice(),{range:3.4}); ixL.enabled=false; ledgeSpot.userData.ix=ixL; }
+
+  /* ── roof plant, kept to the north-west and out of every sight line that matters ── */
+  { const acFrame=add(box(2.3,.22,.9,M.metalDark),5.5,.2,15.9);
+    for(const ax of[4.9,6.1]){ add(box(.95,.72,.72,galvD),ax,.68,15.9); const f=add(decal(tex((g,s)=>{ g.fillStyle="#3a4044"; g.fillRect(0,0,s,s); g.fillStyle="#262c30"; for(let i=0;i<12;i++)g.fillRect(8,8+i*20,s-16,8);
+        g.beginPath(); g.arc(s/2,s/2,s*.3,0,7); g.strokeStyle="#565e64"; g.lineWidth=5; g.stroke(); },128),.8,.6),ax,.7,15.53,Math.PI); f.material.opacity=1; }
+    addCollider(ox+5.5,15.9,2.5,1.1);
+    interact(acFrame,"The condenser units",()=>say(null,"One fan turns, slow as a second hand. Twenty-one floors of other people's warm rooms, exhaled here."));
+    for(const [x,z,on] of[[9.6,15.2,true],[12.0,15.2,false]]){ add(box(1.5,.4,1.1,lam(0x3a3c3e)),x,.2,z); addCollider(ox+x,z,1.5,1.1);
+      const gl=new THREE.Mesh(new THREE.PlaneGeometry(1.3,.9),new THREE.MeshBasicMaterial({color:on?0xb89048:0x0c0e12})); gl.rotation.x=-Math.PI/2+.12; gl.position.set(ox+x,.46,z); scene.add(gl); if(on)lamp(x,1.0,z,0xd0a050,.7,5); }
+    const stT=tex((g,s)=>{ g.clearRect(0,0,s,s); const rr=g.createRadialGradient(s/2,s*.7,6,s/2,s*.45,s*.55); rr.addColorStop(0,"rgba(180,186,196,.5)"); rr.addColorStop(1,"rgba(180,186,196,0)"); g.fillStyle=rr; g.fillRect(0,0,s,s); },128);
+    for(const [x,z] of[[2.2,3.4],[22.4,11]]){ add(rod(.22,.26,1.3,8,M.metal),x,.65,z); add(rod(.34,.3,.14,8,M.metalDark),x,1.4,z); addCollider(ox+x,z,.6,.6);
+      for(let q=0;q<3;q++){ const s2=new THREE.Mesh(new THREE.PlaneGeometry(1.2,1.8),new THREE.MeshBasicMaterial({map:stT,transparent:true,depthWrite:false,opacity:.3})); s2.position.set(ox+x,2.2+q*.7,z); s2.rotation.y=q*1.1; fxSteams.push(s2); scene.add(s2); } }
+    add(rod(.05,.08,7,6,M.metalDark),1.2,3.5,1.3); addCollider(ox+1.2,1.3,.3,.3); for(let i=0;i<4;i++)add(box(1.1-i*.2,.04,.04,M.metalDark),1.2,3.6+i*.8,1.3,i*.8);
+    const bc=add(new THREE.Mesh(new THREE.SphereGeometry(.12,6,5),new THREE.MeshBasicMaterial({color:0xe03028})),1.2,7.1,1.3); fxBeacons.push(bc);
+    const dish=add(new THREE.Mesh(new THREE.SphereGeometry(.5,10,6,0,6.3,0,1.0),lam(0x8a8c88,{side:THREE.DoubleSide})),1.6,1.9,16.8); dish.rotation.set(1.1,0,.6); add(rod(.03,.03,1.4,5,M.metalDark),1.6,1.2,16.8); }
+
+  /* ── light: a moon behind cloud, the city's glow over the north parapet, and practicals ── */
+  { const moon=new THREE.DirectionalLight(0x7c94c0,.62); moon.position.set(ox+2,14,-6); moon.target.position.set(ox+W/2,0,D/2); scene.add(moon); scene.add(moon.target);
+    lamp(W/2,6,D/2,0x566a90,.7,34); lamp(W/2,1.4,D+1.5,0xc88848,.7,12); lamp(-1.5,2.6,5,0x48c8d8,.5,14); }
+
+  /* ── THE CITY ── */
+  mkSky(ox+W/2,D/2,{ringY:-58,ringH:100,ringR:210,moonX:420,moonY:96});
+  { const c=document.createElement("canvas"); c.width=c.height=512; const g=c.getContext("2d"); g.fillStyle="#05060a"; g.fillRect(0,0,512,512);      // the streets, far below
     for(let i=0;i<9;i++){ const p=20+i*58+((i*13)%9); g.fillStyle="rgba(120,84,40,.5)"; g.fillRect(p,0,7,512); g.fillRect(0,p,512,7);
       for(let q=0;q<512;q+=13){ g.fillStyle=(q+i)%3?"#f0b050":"#ffe0a0"; g.fillRect(p+2,q,2,2); g.fillRect(q,p+2,2,2); }
       for(let q=0;q<10;q++){ g.fillStyle=q%2?"#ff5040":"#fff6e0"; g.fillRect(p+(q%2?1:5),(q*53+i*31)%512,2,3); g.fillRect((q*47+i*17)%512,p+(q%2?1:5),3,2); } }
     for(let i=0;i<500;i++){ g.fillStyle=["#e8b860","#9cc4dc","#e06a50","#70d090"][i%4]; g.globalAlpha=.25+Math.random()*.6; g.fillRect(Math.random()*512,Math.random()*512,2,2); } g.globalAlpha=1;
     const t=new THREE.CanvasTexture(c); t.magFilter=THREE.NearestFilter; t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(2,2);
-    const city=new THREE.Mesh(new THREE.PlaneGeometry(520,520),new THREE.MeshBasicMaterial({map:t,fog:false})); city.rotation.x=-Math.PI/2; city.position.set(ox+10,-62,7); scene.add(city); }
-  // near neighbours: lower roofs with their own tanks, plant and lit top floors, close enough to read
-  { const fac=tex((g,s)=>{ g.fillStyle="#0c0c0e"; g.fillRect(0,0,s,s); for(let r=0;r<9;r++)for(let c=0;c<7;c++){ const v=(r*31+c*17)%11; g.fillStyle=v<2?"#d0a458":v===5?"#8ab0cc":"#06070a"; g.fillRect(5+c*18,5+r*13.6,11,8); } },128);
-    for(const [x,z,w,d,top] of[[ox-16,2,14,12,-5],[ox+10,-16,16,10,-9],[ox+37,9,12,16,-3],[ox+12,31,20,11,-12],[ox-13,24,10,10,-16],[ox+36,-10,10,9,4]]){
-      const t=fac.clone(); t.needsUpdate=true; t.repeat.set(w/8,6); const side=new THREE.MeshBasicMaterial({map:t,fog:false}), roof=lam(0x1a1c20);
-      const b=new THREE.Mesh(new THREE.BoxGeometry(w,60,d),[side,side,roof,roof,side,side]); b.position.set(x,top-30,z); scene.add(b);
-      const tk=rod(1.3,1.3,2.2,10,lam(0x2a2e34)); tk.position.set(x+w*.2,top+2.3,z-d*.15); scene.add(tk); for(const [a,c2] of[[-1,-1],[1,-1],[-1,1],[1,1]]){ const lg=box(.12,1.3,.12,M.metalDark); lg.position.set(x+w*.2+a*.9,top+.65,z-d*.15+c2*.9); scene.add(lg); }
-      const hut=box(3,2.4,2.6,lam(0x26282c)); hut.position.set(x-w*.2,top+1.2,z+d*.1); scene.add(hut); glowPlane(.7,1.1,0xd0a050,x-w*.2,top+1.0,z+d*.1+1.31);
-      const bc=new THREE.Mesh(new THREE.SphereGeometry(.22,6,5),new THREE.MeshBasicMaterial({color:0xe03028,fog:false})); bc.position.set(x+w*.2,top+3.6,z-d*.15); fxBeacons.push(bc); scene.add(bc); } }
-  // a hoarding on the next roof, its neon half gone, colouring the rain
-  { const g=group(); for(const a of[-3,0,3]){ put(g,box(.14,6,.14,M.metalDark),a,3,0); put(g,box(.1,4.6,.1,M.metalDark),a,2.2,-1.2,.5); }
-    put(g,box(7.4,3,.16,lam(0x101216)),0,5,0);
-    const sg=new THREE.Mesh(new THREE.PlaneGeometry(7,2.6),new THREE.MeshBasicMaterial({fog:false,map:tex((c,s)=>{ c.fillStyle="#0a0c10"; c.fillRect(0,0,s,s); c.font="bold 64px Courier New"; c.textAlign="center";
-      c.shadowColor="#40c8d8"; c.shadowBlur=18; c.fillStyle="#70e0f0"; c.fillText("MERI",s*.33,s*.55); c.shadowBlur=0; c.fillStyle="rgba(40,90,100,.7)"; c.fillText("DIAN",s*.73,s*.55);
-      c.shadowColor="#e06080"; c.shadowBlur=12; c.fillStyle="#f08098"; c.font="bold 26px Courier New"; c.fillText("NEVER  CLOSES",s/2,s*.8); },256)}));
-    sg.material.map.repeat.set(1,.5); sg.material.map.offset.set(0,.12); put(g,sg,0,5,.1); g.position.set(ox-10,-5,5); g.rotation.y=Math.PI/2+.25; scene.add(g);
-    const nl=pl(0x48c8d8,.9,16,ox+.5,2.6,5); fxPulse.push({light:nl,base:.75,amp:.2,speed:7,phase:0}); }
-  // on this roof: coping, skylights with flats still awake under them, vents breathing, standing water
-  for(const [x0,x1,z] of[[ox,ox+20,.15],[ox,ox+20,13.85]]){ const cp=box(x1-x0,.08,.42,lam(0x6a6a62)); cp.position.set((x0+x1)/2,1.14,z); scene.add(cp); }
-  for(const [z0,z1,x] of[[0,14,ox+.15],[0,14,ox+19.85]]){ const cp=box(.42,.08,z1-z0,lam(0x6a6a62)); cp.position.set(x,1.14,(z0+z1)/2); scene.add(cp); }
-  for(const [x,z,on] of[[ox+5.2,11.2,true],[ox+7.6,11.2,false],[ox+13.6,4.6,true]]){ const cb=box(1.5,.4,1.1,lam(0x3a3c3e)); cb.position.set(x,.2,z); scene.add(cb); addCollider(x,z,1.5,1.1);
-    const gl=new THREE.Mesh(new THREE.PlaneGeometry(1.3,.9),new THREE.MeshBasicMaterial({color:on?0xb89048:0x0c0e12})); gl.rotation.x=-Math.PI/2+.12; gl.position.set(x,.46,z); scene.add(gl);
-    for(const a of[-.33,.33]){ const m=box(.03,.03,.94,M.metalDark); m.position.set(x+a,.47,z); m.rotation.x=.12; scene.add(m); } if(on)pl(0xd0a050,.6,4.5,x,1.0,z); }
-  { const stT=tex((g,s)=>{ g.clearRect(0,0,s,s); const rr=g.createRadialGradient(s/2,s*.7,6,s/2,s*.45,s*.55); rr.addColorStop(0,"rgba(180,186,196,.5)"); rr.addColorStop(1,"rgba(180,186,196,0)"); g.fillStyle=rr; g.fillRect(0,0,s,s); },128);
-    for(const [x,z] of[[ox+18.2,10.4],[ox+3.2,2.2]]){ const v=rod(.22,.26,1.3,8,M.metal); v.position.set(x,.65,z); scene.add(v); const cap=rod(.34,.3,.14,8,M.metalDark); cap.position.set(x,1.4,z); scene.add(cap); addCollider(x,z,.6,.6);
-      for(let q=0;q<3;q++){ const st=new THREE.Mesh(new THREE.PlaneGeometry(1.2,1.8),new THREE.MeshBasicMaterial({map:stT,transparent:true,depthWrite:false,opacity:.3})); st.position.set(x,2.2+q*.7,z); st.rotation.y=q*1.1; fxSteams.push(st); scene.add(st); } } }
-  for(const [x,z,w,d] of[[ox+6,5,3.2,1.6],[ox+12.4,9.8,2.6,1.4],[ox+16.4,6.2,2.2,1.8]]){ const pd=new THREE.Mesh(new THREE.PlaneGeometry(w,d),wetMat(lam(0x0e1218,{transparent:true,opacity:.8}),1,90)); pd.rotation.x=-Math.PI/2; pd.position.set(x,.012,z); scene.add(pd); }
-  // where they sat: the bench, two folding chairs, a crate for a table, the lights she strung, a lantern
-  { const bn=mkBench(); at(bn,ox+10,0,9.2,0); addCollider(ox+10,9.2,1.9,.6);
-    interact(bn,"A bench, facing the city",()=>say(null,"Two dents in the slats, side by side. Rain has not filled them in."));
-    for(const [x,ry] of[[ox+8.2,.5],[ox+11.9,-.4]]){ const ch=mkChair(); at(ch,x,0,10.4,Math.PI+ry); addCollider(x,10.4,.5,.5); }
-    const cr=mkCrate24(); cr.scale.set(.8,.7,.8); at(cr,ox+10,0,10.6,.3); addCollider(ox+10,10.6,.55,.55);
-    const lan=group(); put(lan,box(.14,.2,.14,M.metalDark),0,.1,0); put(lan,box(.1,.14,.1,new THREE.MeshBasicMaterial({color:0xf0c070})),0,.1,0); put(lan,box(.18,.03,.18,M.metalDark),0,.215,0); lan.position.set(ox+10,.43,10.6); scene.add(lan);
-    pl(0xf0b860,.75,5,ox+10,.9,10.4);
-    for(const [bx,bz] of[[ox+9.7,10.3],[ox+10.3,10.8]]){ const bt=rod(.035,.04,.22,6,lam(0x2a4030)); bt.position.set(bx,.5,bz); scene.add(bt); } }
-  for(const z of[8,11.6])for(let i=0;i<12;i++){ const t=i/11, x=ox+4+t*12, y=2.5-Math.sin(t*Math.PI)*.5, on=(i+(z>9?1:0))%3!==1;
-    const b=new THREE.Mesh(new THREE.SphereGeometry(.045,6,5),new THREE.MeshBasicMaterial({color:on?0xf0c070:0x2a2620})); b.position.set(x,y,z); scene.add(b);
-    if(i<11){ const w=box(1.12,.012,.012,M.black); w.position.set(x+.545,y-(Math.sin((t+1/22)*Math.PI)-Math.sin(t*Math.PI))*.25,z); scene.add(w); }
-    if(on&&i%6===0&&z<9)pl(0xe0a858,.5,4.5,x,y-.2,z); }
-  for(const z of[8,11.6])for(const x of[ox+4,ox+16]){ const p=rod(.035,.045,2.6,6,M.metalDark); p.position.set(x,1.3,z); scene.add(p); addCollider(x,z,.2,.2); }
-  // ── THE LEDGE: always there, in the corner where the parapet turns; it only wakes when the song has played ──
-  { const lx=LEDGE.x, stone=surf(TEX.concrete,1.8,1,.8,0x9a968c);
-    const slab=box(1.9,.14,1.25,stone); slab.position.set(lx,1.21,14.15); scene.add(slab);                       // a wide flat stone, proud of the wall on both sides
-    for(const sx of[-1.05,1.05]){ const pier=box(.3,1.6,.5,surf(TEX.brickExt,.5,1.6,.5)); pier.position.set(lx+sx,.8,13.85); scene.add(pier); const cap=box(.4,.08,.6,lam(0x6a6a62)); cap.position.set(lx+sx,1.64,13.85); scene.add(cap); }
-    for(const [y,z,d] of[[.2,13.15,.5],[.55,13.42,.36]]){ const st=box(1.2,y<.3?.4:.3,d,stone); st.position.set(lx,y,z); scene.add(st); }   // two worn steps up
-    const blanket=box(1.2,.05,.7,lam(0x5a2a2a)); blanket.position.set(lx-.1,1.305,14.0); blanket.rotation.y=.08; scene.add(blanket);
-    for(const sx of[-.45,.3]){ const cup=rod(.04,.035,.09,8,lam(0xb8b0a0)); cup.position.set(lx+sx,1.36,14.3); scene.add(cup); }
-    const lan=group(); put(lan,box(.16,.04,.16,M.metalDark),0,.02,0); const flame=put(lan,box(.11,.18,.11,new THREE.MeshBasicMaterial({color:0x2a2620})),0,.13,0); put(lan,box(.18,.03,.18,M.metalDark),0,.235,0);
-    put(lan,new THREE.Mesh(new THREE.TorusGeometry(.07,.008,4,8,Math.PI),M.metalDark),0,.25,0); lan.position.set(lx+.75,1.28,13.95); scene.add(lan);
-    const l=pl(0xf0b860,0,7,lx+.5,1.9,13.5);
-    const beam=new THREE.Mesh(new THREE.ConeGeometry(1.6,5,12,1,true),new THREE.MeshBasicMaterial({color:0xf0b860,transparent:true,opacity:.05,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide,fog:false}));
-    beam.position.set(lx,3.2,13.9); beam.visible=false; scene.add(beam); ledgeLamp={l,m:flame,beam}; }
-  // cables from the music box to each chime, so the roof explains its own puzzle
-  { const cm=lam(0x7a6630), run=(x0,z0,x1,z1)=>{ const a=box(Math.abs(x1-x0)+.05,.025,.05,cm); a.position.set((x0+x1)/2,.014,z0); scene.add(a); const b2=box(.05,.025,Math.abs(z1-z0)+.05,cm); b2.position.set(x1,.014,(z0+z1)/2); scene.add(b2); };
-    run(ox+10,6.6,ox+6,.4); run(ox+10,7.0,ox+.9,5.78); run(ox+10.3,6.8,ox+15.6,3.3); run(ox+10.3,7.2,ox+17.5,13.5);
-    const riser=(x,z,h)=>{ const r=box(.05,h,.05,cm); r.position.set(x,h/2,z); scene.add(r); }; riser(ox+6,.36,1.0); riser(ox+17.5,13.52,1.0); riser(ox+15.6,3.3,1.4);
-    const jb=box(.3,.08,.3,M.metalDark); jb.position.set(ox+10.15,.04,6.9); scene.add(jb); }
-  // the three valves share a manifold that runs to the tank, so it is clear what they feed
-  { const mf=box(6.4,.1,.1,M.metal); mf.position.set(ox+11.2,.2,.75); scene.add(mf); const up=box(.1,.1,1.6,M.metal); up.position.set(ox+14.4,.2,1.5); scene.add(up);
-    const rise=box(.1,1.3,.1,M.metal); rise.position.set(ox+15.7,.65,2.3); scene.add(rise); const inl=box(1.3,.1,.1,M.metal); inl.position.set(ox+15.05,.2,2.3); scene.add(inl);
-    const plq=decal(tex((g,s)=>{ g.fillStyle="#2a2620"; g.fillRect(0,0,s,s); g.fillStyle="#c8b878"; g.font="bold 30px Courier New"; g.textAlign="center"; g.fillText("TANK FILL",s/2,s/2-4); g.font="18px Courier New"; g.fillText("OPEN IN ORDER",s/2,s/2+24); },256),.8,.4);
-    plq.material.map.repeat.set(1,.5); plq.material.map.offset.set(0,.25); plq.position.set(ox+10.5,1.75,.31); scene.add(plq); }
-  // a mast with a working beacon, guyed down; and a dish pointed at nothing
-  { const mx=ox+18.4, mz=1.4; const m=rod(.05,.08,7,6,M.metalDark); m.position.set(mx,3.5,mz); scene.add(m); addCollider(mx,mz,.3,.3);
-    for(let i=0;i<4;i++){ const cr=box(1.1-i*.2,.04,.04,M.metalDark); cr.position.set(mx,3.6+i*.8,mz); cr.rotation.y=i*.8; scene.add(cr); }
-    const bc=new THREE.Mesh(new THREE.SphereGeometry(.12,6,5),new THREE.MeshBasicMaterial({color:0xe03028})); bc.position.set(mx,7.1,mz); fxBeacons.push(bc); scene.add(bc);
-    const dish=new THREE.Mesh(new THREE.SphereGeometry(.5,10,6,0,6.3,0,1.0),lam(0x8a8c88,{side:THREE.DoubleSide})); dish.position.set(ox+2.6,1.9,12.8); dish.rotation.set(1.1,0,.6); scene.add(dish);
-    const arm=rod(.03,.03,1.4,5,M.metalDark); arm.position.set(ox+2.6,1.2,12.8); scene.add(arm); }
+    const city=new THREE.Mesh(new THREE.PlaneGeometry(560,560),new THREE.MeshBasicMaterial({map:t,fog:false})); city.rotation.x=-Math.PI/2; city.position.set(ox+W/2,-62,D/2); scene.add(city); }
+  { // buildings with storeys you can count: window bays in runs, some floors lit end to end, dark service bands, a crown
+    let q=4242; const R=()=>{ q=(q*16807)%2147483647; return q/2147483647; };
+    const facade=()=>tex((g,s)=>{ g.fillStyle=["#0b0c10","#0e0d0c","#0a0d10"][(R()*3)|0]; g.fillRect(0,0,s,s);
+      const cols=6+((R()*4)|0), rows=12, cw=s/cols, rh=s/rows, warm=R()<.75;
+      for(let r=0;r<rows;r++){ const floorLit=R()<.12, band=r%6===5;
+        for(let c2=0;c2<cols;c2++){ if(band){ g.fillStyle="#050608"; g.fillRect(c2*cw,r*rh+rh*.3,cw,rh*.4); continue; }
+          const lit=floorLit?R()<.8:R()<.16; g.fillStyle=lit?(R()<.2?"#9cc0d8":warm?"#e2b25e":"#d8c890"):"#12151a"; g.globalAlpha=lit?.55+R()*.45:1;
+          g.fillRect(c2*cw+cw*.18,r*rh+rh*.22,cw*.64,rh*.56); g.globalAlpha=1; } } },128);
+    const fT=[facade(),facade(),facade(),facade(),facade()], dark=new THREE.MeshBasicMaterial({color:0x06070a,fog:false}), cx=ox+W/2, cz=D/2;
+    const tower=(x,z,w,d,top,h,detail)=>{ const t=fT[(R()*5)|0].clone(); t.needsUpdate=true; t.repeat.set(Math.max(1,Math.round(w/7)),Math.max(1,Math.round(h/30)));
+      const m=new THREE.MeshBasicMaterial({map:t,fog:false}), b=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),[m,m,dark,dark,m,m]); b.position.set(x,top-h/2,z); b.rotation.y=R()*.3-.15; scene.add(b);
+      if(!detail)return; const k=R();
+      if(k<.4){ const tk=rod(1.4,1.4,2.4,10,new THREE.MeshBasicMaterial({color:0x14171c,fog:false})); tk.position.set(x+w*.2,top+2.6,z); scene.add(tk); for(const a of[-1,1]){ const lg=box(.14,1.4,.14,dark); lg.position.set(x+w*.2+a,top+.7,z); scene.add(lg); } }
+      else if(k<.7){ const crown=box(w*.6,2.2,d*.6,new THREE.MeshBasicMaterial({color:0x0c0e12,fog:false})); crown.position.set(x,top+1.1,z); scene.add(crown);
+        const strip=box(w*.6+.05,.3,d*.6+.05,new THREE.MeshBasicMaterial({color:[0xd0a050,0x60c0d0,0xd05868][(R()*3)|0],fog:false})); strip.position.set(x,top+2.1,z); scene.add(strip); }
+      else { const an=box(.14,7,.14,dark); an.position.set(x,top+3.5,z); scene.add(an); const bc=new THREE.Mesh(new THREE.SphereGeometry(.28,6,5),new THREE.MeshBasicMaterial({color:0xe03028,fog:false})); bc.position.set(x,top+7.1,z); fxBeacons.push(bc); scene.add(bc); } };
+    for(const [r1,r2,tMin,tMax,n,det] of[[20,30,-14,1,9,true],[34,52,-6,12,13,true],[60,95,4,34,16,false]])
+      for(let i=0;i<n;i++){ const a=i/n*Math.PI*2+R()*.4, rad=r1+R()*(r2-r1), w=6+R()*8, d=6+R()*7, top=tMin+R()*(tMax-tMin);
+        if(Math.abs(Math.sin(a))>.5&&Math.cos(a)>.2&&rad<34&&top>-4)continue;                    // keep the view north-east of the ledge open
+        tower(cx+Math.cos(a)*rad,cz+Math.sin(a)*rad,w,d,top,70+top,det); }
+    // the hoarding on the next roof west, half its neon gone
+    const hb=group(); for(const a of[-3,0,3]){ put(hb,box(.14,6,.14,M.metalDark),a,3,0); put(hb,box(.1,4.6,.1,M.metalDark),a,2.2,-1.2,.5); } put(hb,box(7.4,3,.16,lam(0x101216)),0,5,0);
+    const sg=new THREE.Mesh(new THREE.PlaneGeometry(7,2.6),new THREE.MeshBasicMaterial({fog:false,map:tex((c2,s)=>{ c2.fillStyle="#0a0c10"; c2.fillRect(0,0,s,s); c2.font="bold 64px Courier New"; c2.textAlign="center";
+      c2.shadowColor="#40c8d8"; c2.shadowBlur=18; c2.fillStyle="#70e0f0"; c2.fillText("MERI",s*.33,s*.55); c2.shadowBlur=0; c2.fillStyle="rgba(40,90,100,.7)"; c2.fillText("DIAN",s*.73,s*.55);
+      c2.shadowColor="#e06080"; c2.shadowBlur=12; c2.fillStyle="#f08098"; c2.font="bold 26px Courier New"; c2.fillText("NEVER  CLOSES",s/2,s*.8); },256)}));
+    sg.material.map.repeat.set(1,.5); sg.material.map.offset.set(0,.12); put(hb,sg,0,5,.1); hb.position.set(ox-13,-6,4); hb.rotation.y=Math.PI/2+.2; scene.add(hb); }
 });
 
 /* ── 11 · METRO: the train brings its own light ── */
@@ -3735,6 +3633,11 @@ function touchTick(){ if(!touch.on)return; const play=running&&!uiOpen;
   slider("VOLUME","volume",0,1,.02,()=>{ if(AU.master)AU.master.gain.value=SETTINGS.volume; });
   const foot=document.querySelector("#pauseBox .pauseFoot"); foot.parentNode.insertBefore(row,foot); }
 
+/* if pointer lock has been lost (Esc, alt-tab, a refused re-lock), tell the player how to get it back */
+let clickHintOn=false; const clickHint=document.createElement("div"); clickHint.id="clickHint"; clickHint.textContent="CLICK TO LOOK AROUND";
+clickHint.style.cssText="position:fixed;left:50%;top:64%;transform:translateX(-50%);z-index:41;font:11px 'Courier New',monospace;letter-spacing:4px;color:#d8d2c2;background:rgba(6,8,10,.6);border:1px solid #3a4238;padding:8px 16px;opacity:0;transition:opacity .4s;pointer-events:none";
+document.body.appendChild(clickHint);
+
 /* ---------------- Main loop ---------------- */
 const clock=new THREE.Clock();
 let stepAcc=0, bobT=0;
@@ -3809,7 +3712,7 @@ function tick(){
 
   /* Figure behavior: glimpsed, then flees/vanishes (waking floors only) */
   if(figure.visible){ figure.lookAt(player.x,figure.position.y,player.z);
-    figure.position.y=(cine.active&&curZone==="metro"?.58:0)+Math.sin(t*2)*.02;
+    figure.position.y=(cine.active&&curZone==="metro"?TRAIN_FLOOR:0)+Math.sin(t*2)*.02;
     if(curZone==="floor8"&&!GS.chase){ figureT+=dt;
       const dist=Math.hypot(player.x-figure.position.x,player.z-figure.position.z);
       if(figureT>7||dist<5){ figure.visible=false; AU.burst(.3,120,.3,1); dread=Math.min(1,dread+.3);
@@ -3819,6 +3722,7 @@ function tick(){
   if(!DBG.freezeDread)dread=Math.max(0,dread-dt*.05);
   if(DBG.open){ $("dbDread").value=dread; $("dbDreadV").textContent=dread.toFixed(2); }
   dbgHudTick(dt); touchTick();
+  { const need=running&&!uiOpen&&!locked&&!touch.on&&!cine.active&&!ride.active; if(need!==clickHintOn){ clickHintOn=need; clickHint.style.opacity=need?1:0; } }
   fullGameTick(dt,t);
   postMat.uniforms.dread.value=dread;
   postMat.uniforms.time.value=t;

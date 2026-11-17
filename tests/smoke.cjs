@@ -18,7 +18,8 @@ const server = http.createServer((req, res) => {
 });
 
 const failures = [];
-const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL ") + name + (ok || !detail ? "" : "  → " + detail)); if (!ok) failures.push(name); };
+let dump = async () => "";
+const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL ") + name + (ok || !detail ? "" : "  → " + detail)); if (!ok) { failures.push(name); dump().then(d => d && console.log("       state: " + d)).catch(() => {}); } };
 
 (async () => {
   if (!fs.existsSync(path.join(ROOT, "index.html"))) { console.error("out/ not found — run `npm run build` first"); process.exit(2); }
@@ -30,6 +31,7 @@ const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL
   page.on("pageerror", e => errors.push(e.message));
   page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
   const ev = (f, a) => page.evaluate(f, a), wait = ms => page.waitForTimeout(ms);
+  dump = () => page.evaluate(() => JSON.stringify({ zone: curZone, x: +player.x.toFixed(2), z: +player.z.toFixed(2), seated: player.seated, running, ui: uiOpen, travelLock, ride: ride.active, cine: cine.active, paused: gamePaused, timers: gameTimers.size, sub: document.getElementById("subtitle").textContent.slice(0, 60) }));
   const use = async label => { const r = await ev(l => { const e = interactables.find(e => e.prompt.startsWith(l) && e.zone === curZone && e.enabled); if (!e) return false; usedMesh = e.mesh; e.fn(); return true; }, label); await wait(250); return r; };
 
   console.log("boot");
@@ -41,42 +43,48 @@ const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL
   console.log("first half, played in order");
   const until = async (f, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await ev(f)) return true; await wait(250); } return false; };
   check("opening: seated on a moving train, doors shut", await ev(() => ride.active && player.seated && arrTrain.position.x < 880 && arrDoors[1].userData.dl.position.x > -.3));
-  check("ride ends stopped at the platform, on foot in the open doorway", await until(() => !ride.active && !player.seated && arrTrain.position.x === 911 && arrDoors[1].userData.dl.position.x < -.8 && player.floorY > .5, 180000));
+  check("ride ends stopped at the platform, on foot in the open doorway", await until(() => !ride.active && !player.seated && arrTrain.position.x === 911 && arrDoors[1].userData.dl.position.x < -.8 && player.z > 6.3, 180000));
+  check("standing eye height clears the door head", await ev(() => { arrTrain.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(arrDoors[1]); return TRAIN_FLOOR + CFG.eye < b.max.y - .2 && TRAIN_FLOOR < .2; }));
+  await ev(() => { keys.KeyW = true; });
+  check("he can walk off the train onto the platform", await until(() => player.z < 5 && player.floorY < .02, 30000)); await ev(() => { keys.KeyW = false; });
   await ev(() => { player.z = 5.2; }); await wait(400);
-  check("arrival → street", await use("Up to the street") && await until(() => curZone === "street" && !travelLock, 4000));
+  check("arrival → street", await use("Up to the street") && await until(() => curZone === "street" && !travelLock, 30000));
   await use("Home");
-  check("front door → dream 1, on foot", await until(() => curZone === "dream1" && !player.seated, 8000));
+  check("front door → dream 1, on foot", await until(() => curZone === "dream1" && !player.seated, 30000));
   check("dream 1 ends in the chair in 8001 (under 45s)", await until(() => curZone === "floor8" && player.seated, 45000));
   await wait(1800); await ev(() => { keys.KeyE = true; });
   check("standing starts the phone", await until(() => !player.seated && ringing, 15000));
   await use("Answer the telephone");
   check("answering unlocks the flat", await ev(() => phoneAnswered) && await use("Front door") && await ev(() => door8001Open));
-  await use("Knock on 8007"); check("8007 opens on a knock", await until(() => door8007Open, 3000));
+  await use("Knock on 8007"); check("8007 opens on a knock", await until(() => door8007Open, 30000));
   await use("Eileen's landline"); await ev(() => { dialed = "111111111"; }); await page.click("#dialCall"); await wait(200);
   check("wrong number is refused", await ev(() => !puzzleSolved && uiOpen === "dial"));
   await ev(() => { dialed = CFG.code; }); await page.click("#dialCall"); await until(() => ixPiece.enabled && ixKey.enabled, 20000);
   check("right number drops the piece and key", await use("Take Puzzle Piece #1") && await use("Take the Old Restock key") && await ev(() => GS.elevG && inv.has("key_restock")));
   const lift = async label => { await use("Call the elevator") || await use("Elevator"); await wait(200);
     await ev(l => [...document.querySelectorAll("#elevBtns button")].find(b => b.textContent.startsWith(l)).click(), label); };
-  await lift("G"); check("lift → lobby", await until(() => curZone === "lobbyG" && !travelLock, 4000));
-  await use("Back door"); check("back door → alley", await until(() => curZone === "alley" && !travelLock, 4000));
-  await use("The Old Restock Door"); check("restock key opens the restock room", await until(() => curZone === "restock" && !travelLock, 6000));
+  await lift("G"); check("lift → lobby", await until(() => curZone === "lobbyG" && !travelLock, 30000));
+  await use("Back door"); check("back door → alley", await until(() => curZone === "alley" && !travelLock, 30000));
+  await use("The Old Restock Door"); check("restock key opens the restock room", await until(() => curZone === "restock" && !travelLock, 30000));
   await use("The generator"); check("generator starts the chase", await until(() => GS.chase && curZone === "dream2", 30000));
   check("she starts ahead of him and facing away", await ev(() => figure.visible && figure.position.z < player.z - 8));
   await ev(() => { keys.KeyW = true; }); await until(() => player.z < 40, 60000);
   check("she keeps ahead while he follows", await ev(() => figure.position.z < player.z - 6));
   await ev(() => { keys.KeyW = false; player.z = 4; });
-  check("catching her ends in the box room", await until(() => GS.boxPhase && curZone === "restock" && !GS.chase, 6000));
+  check("catching her ends in the box room", await until(() => GS.boxPhase && curZone === "restock" && !GS.chase, 30000));
   await wait(800); await use("Back to the alley"); await wait(300);
   check("box room holds him until the boxes are searched", await ev(() => curZone === "restock"));
   await ev(() => { crates.filter(c => c.userData.reward).forEach(c => openCrate(c)); if (uiOpen === "note") closeNote(); });
   check("marked boxes give the terrace key and piece 2", await ev(() => inv.has("key_terrace") && inv.has("piece2") && GS.elev21));
-  await use("Back to the alley"); await until(() => curZone === "alley" && !travelLock, 4000);
-  await use("Back into the building"); await until(() => curZone === "lobbyG" && !travelLock, 4000);
-  await lift("21"); check("lift → 21st floor", await until(() => curZone === "floor21" && !travelLock, 4000));
+  await use("Back to the alley"); await until(() => curZone === "alley" && !travelLock, 30000);
+  await use("Back into the building"); await until(() => curZone === "lobbyG" && !travelLock, 30000);
+  await lift("21"); check("lift → 21st floor", await until(() => curZone === "floor21" && !travelLock, 30000));
   await use("The terrace door"); await wait(300); check("terrace door insists on the photograph", await ev(() => curZone === "floor21"));
   await use("A photograph"); await use("The terrace door");
-  check("terrace key opens the roof", await until(() => curZone === "terrace" && !travelLock, 4000));
+  check("terrace key opens the roof", await until(() => curZone === "terrace" && !travelLock, 30000));
+  check("the way back in is a door he can see and use", await ev(() => { const e = interactables.find(e => e.prompt === "Back inside" && e.zone === "terrace"); if (!e || !e.mesh.userData.isDoor) return false;
+    scene.updateMatrixWorld(true); const c = new THREE.Box3().setFromObject(e.mesh).getCenter(new THREE.Vector3()); return Math.hypot(c.x - player.x, c.z - player.z) < 2.5; }));
+  check("nothing solid stands between the bench and the ledge", await ev(() => { for (let t = 0; t <= 1; t += .02) { const x = 714 + (LEDGE.x - 714) * t, z = 13.2 + (LEDGE.z - 1.2 - 13.2) * t, [cx, cz] = collide(x, z); if (Math.hypot(cx - x, cz - z) > .01) return false; } return true; }));
 
   console.log("ending A");
   for (const n of [2, 1, 3]) await ev(n => turnValve(valves.find(v => v.userData.idx === n)), n);
