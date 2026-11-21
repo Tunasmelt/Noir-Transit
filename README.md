@@ -126,6 +126,7 @@ NEXT_PUBLIC_BASE_PATH=/Noir-Transit npm run build
 - Puzzle hints escalate: the valve and chime puzzles only state their answer after four failed attempts; before that they point at the notes that carry it.
 - The developer debug menu (teleports, noclip, puzzle skips) opens with `` ` `` or `F2`. Its on-screen button only appears with `?debug` in the URL.
 - The picture is always 240 lines tall; the column count follows the window (320 at 4:3, 426 at 16:9, capped at 21:9) so pixels stay square.
+- Art: `public/art/` holds six AI-generated images (landing hero, social card, two ending backdrops, the polaroid and the MISSING flyer, which `paintArt()` in `engine.js` paints onto the in-game textures), plus the favicons. They were generated with Higgsfield (GPT Image 2.6). Every use has a procedural fallback, so the game runs if a file is missing. Set `NEXT_PUBLIC_SITE_URL` at build time to make the social-card URL absolute.
 - To modify game logic, edit `public/game/engine.js` directly — it's the same script that was in the original `<script>` tag, so all existing documentation/notes about the game's internals still apply.
 
 ## License
