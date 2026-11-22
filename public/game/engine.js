@@ -168,9 +168,9 @@ TEX.planksOld=tex((g,s)=>{ g.fillStyle="#4a3d2e";g.fillRect(0,0,s,s);
   for(let y=0;y<s;y+=36){ g.fillStyle=`rgb(${66+Math.random()*14},${56+Math.random()*10},${42+Math.random()*8})`;
     g.fillRect(0,y,s,36); g.strokeStyle="rgba(20,14,8,.8)"; g.strokeRect(-1,y+.5,s+2,36); }
   speck(g,s,300,"rgba(28,22,14,.5)"); grime(g,s,20,.22); });
-TEX.tile=tex((g,s)=>{ g.fillStyle="#7b7f78";g.fillRect(0,0,s,s); g.strokeStyle="#4a4e48";
+TEX.tile=tex((g,s)=>{ g.fillStyle="#34382f";g.fillRect(0,0,s,s); g.strokeStyle="#4a4e48";
   for(let y=0;y<=s;y+=64)for(let x=0;x<=s;x+=64){ g.fillStyle=`rgb(${118+Math.random()*14},${122+Math.random()*12},${114+Math.random()*10})`;
-    g.fillRect(x+2,y+2,60,60);} grime(g,s,24,.2); speck(g,s,120,"rgba(50,52,48,.5)"); });
+    g.fillRect(x+3,y+3,58,58); g.fillStyle="rgba(255,255,240,.07)"; g.fillRect(x+3,y+3,58,3);} grime(g,s,24,.16); speck(g,s,120,"rgba(50,52,48,.5)"); });
 TEX.ceiling=tex((g,s)=>{ g.fillStyle="#8a877c";g.fillRect(0,0,s,s); speck(g,s,600,"rgba(120,118,108,.4)");
   grime(g,s,10,.25,"90,72,40"); // water rings
   for(let i=0;i<4;i++){ const x=Math.random()*s,y=Math.random()*s; for(let r=14;r<50;r+=9){ g.strokeStyle="rgba(110,88,50,.28)"; g.beginPath();g.arc(x,y,r,0,7);g.stroke(); } } });
@@ -218,7 +218,7 @@ function paintArt(t,file,post){ const im=new Image(); im.onload=()=>{ const c=t.
 paintArt(TEX.photo,"photo-tex.jpg");
 /* Generated surface textures replace the procedural ones once loaded (the procedural drawing remains the fallback). */
 [["wallpaper","tex-wallpaper"],["wallpaperOld","tex-wallpaper-old"],["concrete","tex-concrete"],["woodFloor","tex-wood-floor"],["planksOld","tex-planks-old"],
- ["tile","tex-tile"],["ceiling","tex-ceiling"],["hallFloor","tex-concrete"],["metal","tex-metal"],["metroMetal","tex-metro-metal"],["metroFloor","tex-metro-floor"],["runner","tex-runner"]
+ ["hallFloor","tex-concrete"],["metal","tex-metal"],["metroMetal","tex-metro-metal"],["metroFloor","tex-metro-floor"],["runner","tex-runner"]
 ].forEach(([k,f])=>paintArt(TEX[k],f+".jpg"));
 paintArt(TEX.doorWood,"tex-door-wood.jpg",(g,s)=>{ g.strokeStyle="rgba(14,8,4,.85)"; g.lineWidth=4; g.strokeRect(30,24,s-60,s*.38); g.strokeRect(30,s*.5,s-60,s*.42); });
 TEX.noteSmall=tex((g,s)=>{ g.fillStyle="#cfc6ac"; g.fillRect(0,0,s,s); grime(g,s,8,.15,"120,100,60");
@@ -1790,12 +1790,11 @@ inZone("arrival",()=>{
     ws.position.set(ox+22.292,2.71,3.4); ws.rotation.y=-Math.PI/2; scene.add(ws);
     const gl=new THREE.PointLight(0xd8c060,.3,3.2,1.8); gl.position.set(ox+21.92,2.5,3.4); scene.add(gl); }
   // a couple of platform benches + a bin (lived-in)
-  for(const bx of[ox+5,ox+15]){ const seat=box(1.4,.05,.4,M.woodDark); seat.position.set(bx,.5,1.7); scene.add(seat);
-    for(const lx of[-.6,.6]){ const leg=box(.06,.5,.34,M.metalDark); leg.position.set(bx+lx,.25,1.7); scene.add(leg);} }
+  for(const bx of[ox+4,ox+15]){ const bn2=mkBench(); at(bn2,bx,0,1.9,Math.PI); addCollider(bx,1.9,1.9,.6); }
 
   // ── the train: a textured shell with visible carriage interior and three door bays ──
   arrTrain=group();
-  const carM=surf(TEX.metroMetal,22,2.5,2.4,0xaeb6b4);
+  const carM=new THREE.MeshLambertMaterial({color:0x9ba5a8});   // painted silver body: flat colour, no stretched texture
   // Open the boarding side so the carriage is a real readable interior,
   // rather than a solid box with an invisible teleport trigger.
   const car=new THREE.Group();
@@ -1822,11 +1821,11 @@ inZone("arrival",()=>{
     for(const [o0,o1] of openings.concat([[11,11]])){ if(o0-cur>.02){ const pil=box(o0-cur,.98,.12,carM); pil.position.set((cur+o0)/2,1.46,-.82); arrTrain.add(pil); } cur=Math.max(cur,o1); } }
   for(const [o0,o1] of openings)if(o1-o0<1){ const lower=box(o1-o0,.4,.12,carM); lower.position.set((o0+o1)/2,1.18,-.82); arrTrain.add(lower); }   // panel under each window
   const cabFloor=box(22,.08,1.45,surf(TEX.metroFloor,22,1.45,1.1)); cabFloor.position.set(0,.58,.02); arrTrain.add(cabFloor);
-  const cabCeil=box(22,.08,1.42,surf(TEX.metroMetal,22,1.42,2.2,0x4b555a)); cabCeil.position.set(0,2.48,.02); arrTrain.add(cabCeil);
-  const cabWall=box(21.7,1.65,.08,surf(TEX.metroMetal,21.7,1.65,2.0,0x4e585d)); cabWall.position.set(0,1.48,.72); arrTrain.add(cabWall);
-  for(const x of[-8,-4,0,4,8]){ const seat=box(1.35,.12,.42,new THREE.MeshLambertMaterial({color:0x47525a})); seat.position.set(x,.85,.42); arrTrain.add(seat); }
-  const cabLight=box(18,.02,.12,new THREE.MeshBasicMaterial({color:0xb8b49a})); cabLight.position.set(0,2.425,0); arrTrain.add(cabLight);
-  const cabGlow=new THREE.PointLight(0xb7c9bd,.55,5,1.8); cabGlow.position.set(0,1.9,-.35); arrTrain.add(cabGlow);
+  const cabCeil=box(22,.08,1.42,surf(TEX.metroMetal,22,1.42,2.2,0x808a88)); cabCeil.position.set(0,2.48,.02); arrTrain.add(cabCeil);
+  const cabWall=box(21.7,1.65,.08,surf(TEX.metroMetal,21.7,1.65,2.0,0x8c9490)); cabWall.position.set(0,1.48,.72); arrTrain.add(cabWall);
+  for(const x of[-8,-4,0,4,8]){ const seat=box(1.35,.12,.42,new THREE.MeshLambertMaterial({color:0x6a4a3a})); seat.position.set(x,.85,.42); arrTrain.add(seat); }
+  const cabLight=box(20,.03,.16,new THREE.MeshBasicMaterial({color:0xf0e8c0})); cabLight.position.set(0,2.425,0); arrTrain.add(cabLight);
+  for(const lx of[-7,0,7]){ const cabGlow=new THREE.PointLight(0xe8dcb0,.7,6,1.6); cabGlow.position.set(lx,1.9,-.2); arrTrain.add(cabGlow); }
   // far-side windows (black tunnel glass), advert cards and a line map, so the carriage reads from inside
   for(let i=-9;i<=9;i++){ const wx=i*1.05; const fw=box(.74,.62,.02,new THREE.MeshBasicMaterial({color:0x05080b})); fw.position.set(wx,1.7,.675); arrTrain.add(fw);
     const fr=box(.8,.04,.03,M.metalDark); fr.position.set(wx,1.38,.67); arrTrain.add(fr); }
@@ -2759,12 +2758,15 @@ inZone("metro",()=>{
     interact(vm,"The vending machine",()=>say(null,"Dark. Its brothers uptown still hum. Down here even the machines have given up."));
     const ck=mkWallClock(11,47,true); ck.position.set(ox+14,2.55,.2); scene.add(ck);
     interact(ck,"The station clock",()=>say(null,"Eleven-forty-seven. Seven minutes have passed all night. He doesn't ask which seven."));
-    const posterTex2=(t2,c1,c2)=>tex((g,s)=>{ g.fillStyle=c1; g.fillRect(0,0,s,s);
-      g.fillStyle=c2; g.font="bold 24px Courier New"; g.textAlign="center";
-      t2.split("|").forEach((ln,i)=>g.fillText(ln,s/2,42+i*30)); grime(g,s,16,.55); },128);
-    const p1=decal(posterTex2("LAST TRAIN|23:59|MIND THE|CLOSING DOORS","#2a3038","#b8b09a"),1.0,1.25);
+    const posterTex2=(t2,c1,c2)=>tex((g,s)=>{       // station notice: pale paper, heavy dark type, border + pin holes, legible at 240 lines
+      g.fillStyle=c1; g.fillRect(0,0,s,s); g.strokeStyle=c2; g.lineWidth=8; g.strokeRect(10,10,s-20,s-20);
+      g.fillStyle=c2; g.textAlign="center"; const L=t2.split("|"); g.font="bold 36px Courier New";
+      L.forEach((ln,i)=>{ g.font=(i===0?"bold 40px":"bold 34px")+" Courier New"; g.fillText(ln,s/2,70+i*(s-90)/Math.max(L.length,3)); });
+      g.fillStyle="rgba(20,16,10,.55)"; for(const [x,y] of[[18,18],[s-18,18]]){ g.beginPath(); g.arc(x,y,4,0,7); g.fill(); }
+      grime(g,s,10,.28); },256);
+    const p1=decal(posterTex2("LAST TRAIN|23:59|MIND THE|DOORS","#d8c878","#1c1a14"),1.0,1.25);
     p1.position.set(ox+6.5,1.8,.2); p1.rotation.z=-.02; scene.add(p1);
-    const p2=decal(posterTex2("LOST|PROPERTY|—|ASK BELOW","#3a3028","#c0b89c"),.85,1.1);
+    const p2=decal(posterTex2("LOST|PROPERTY|—|ASK BELOW","#d0c8b0","#201c16"),.85,1.1);
     p2.position.set(ox+21.5,1.85,.2); p2.rotation.z=.03; scene.add(p2); }
   // the stairs he came down by — rising back toward the street, out of reach now
   { const conc2=new THREE.MeshLambertMaterial({map:TEX.concrete});
