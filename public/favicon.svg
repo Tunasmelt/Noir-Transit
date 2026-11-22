@@ -1,0 +1,22 @@
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" width="1024" height="1024">
+  <title>Amber doorway in rain</title>
+  <defs>
+    <clipPath id="icon-clip">
+      <rect x="24" y="24" width="976" height="976" rx="240" />
+    </clipPath>
+  </defs>
+  <g clip-path="url(#icon-clip)">
+    <rect x="24" y="24" width="976" height="976" rx="240" fill="#0a0b0d" />
+    <path d="M430 375H594V780L896 1000H128L430 780Z" fill="#e8b060" />
+    <g fill="none" stroke="#dedede" stroke-width="28" stroke-linecap="round">
+      <path d="M319 114L244 237" />
+      <path d="M463 204L389 327" />
+      <path d="M720 115L646 239" />
+      <path d="M907 254L833 382" />
+      <path d="M211 348L134 476" />
+      <path d="M309 553L229 687" />
+      <path d="M743 462L679 571" />
+      <path d="M893 587L818 716" />
+    </g>
+  </g>
+</svg>

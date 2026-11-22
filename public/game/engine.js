@@ -9,6 +9,11 @@
    ============================================================ */
 "use strict";
 const $=id=>document.getElementById(id);
+/* Generated art lives in /art next to /game. Derive its base from where this script was loaded, so it
+   keeps working when the site is served from a subpath (see NEXT_PUBLIC_BASE_PATH). */
+const ART=f=>{ let b=""; try{ b=ENGINE_SRC.replace(/\/game\/engine\.js(\?.*)?$/,""); }catch(e){} return b+"/art/"+f; };
+const ENGINE_SRC=(document.currentScript&&document.currentScript.src)||"";
+const preloadArt=f=>{ try{ new Image().src=ART(f); }catch(e){} };
 
 /* ---------------- Per-pixel lighting ----------------
    Every surface in the game is authored as MeshLambertMaterial, which three.js
@@ -207,6 +212,15 @@ TEX.photo=tex((g,s)=>{ // Thomas + Eileen, his face blurred to light
   g.fillStyle=glow; g.fillRect(s*.62-28,s*.5-28,56,56);
   g.fillStyle="rgba(210,200,170,.16)"; g.fillRect(0,0,s,s); grime(g,s,10,.2,"120,100,60");
   g.strokeStyle="#d8d0bc"; g.lineWidth=10; g.strokeRect(5,5,s-10,s-10); });
+/* Paint a generated image into an existing canvas texture. The procedural drawing stays as the fallback
+   (and as the first frame) if the file is missing; nearest filtering keeps the PS2 look either way. */
+function paintArt(t,file,post){ const im=new Image(); im.onload=()=>{ const c=t.image, g=c.getContext("2d"); g.drawImage(im,0,0,c.width,c.height); if(post)post(g,c.width); t.needsUpdate=true; }; im.onerror=()=>{}; im.src=ART(file); }
+paintArt(TEX.photo,"photo-tex.jpg");
+/* Generated surface textures replace the procedural ones once loaded (the procedural drawing remains the fallback). */
+[["wallpaper","tex-wallpaper"],["wallpaperOld","tex-wallpaper-old"],["concrete","tex-concrete"],["woodFloor","tex-wood-floor"],["planksOld","tex-planks-old"],
+ ["tile","tex-tile"],["ceiling","tex-ceiling"],["hallFloor","tex-hall-floor"],["metal","tex-metal"],["metroMetal","tex-metro-metal"],["metroFloor","tex-metro-floor"],["runner","tex-runner"]
+].forEach(([k,f])=>paintArt(TEX[k],f+".jpg"));
+paintArt(TEX.doorWood,"tex-door-wood.jpg",(g,s)=>{ g.strokeStyle="rgba(14,8,4,.85)"; g.lineWidth=4; g.strokeRect(30,24,s-60,s*.38); g.strokeRect(30,s*.5,s-60,s*.42); });
 TEX.noteSmall=tex((g,s)=>{ g.fillStyle="#cfc6ac"; g.fillRect(0,0,s,s); grime(g,s,8,.15,"120,100,60");
   g.strokeStyle="#6a5a3a"; for(let y=40;y<s;y+=28){g.beginPath();g.moveTo(24,y);g.lineTo(s-24,y+2);g.stroke();} },128);
 TEX.bookRow=tex((g,s)=>{ g.fillStyle="#1c150e"; g.fillRect(0,0,s,s); let x=0;
@@ -1743,9 +1757,9 @@ inZone("arrival",()=>{
     const posterTex=(t2,c1,c2)=>tex((g,s)=>{ g.fillStyle=c1; g.fillRect(0,0,s,s);
       g.fillStyle=c2; g.font="bold 26px Courier New"; g.textAlign="center";
       t2.split("|").forEach((ln,i)=>g.fillText(ln,s/2,44+i*32)); grime(g,s,12,.45); },128);
-    const p1=decal(posterTex("VISIT|THE COAST|—|IT MISSES YOU","#33424a","#c8b890"),1.0,1.3);
+    const t1=posterTex("VISIT|THE COAST|—|IT MISSES YOU","#33424a","#c8b890"); paintArt(t1,"poster-coast.jpg"); const p1=decal(t1,1.0,1.3);
     p1.position.set(ox+5.5,1.8,1.28); p1.rotation.z=.02; scene.add(p1);
-    const p2=decal(posterTex("HALDANE|WARD|COUNCIL|NOTICES","#4a4034","#d0c8ac"),.9,1.2);
+    const t2b=posterTex("HALDANE|WARD|COUNCIL|NOTICES","#4a4034","#d0c8ac"); paintArt(t2b,"poster-council.jpg"); const p2=decal(t2b,.9,1.2);
     p2.position.set(ox+16.8,1.85,1.28); p2.rotation.z=-.03; scene.add(p2); }
   { const pit=new THREE.Mesh(new THREE.PlaneGeometry(23,1.6),new THREE.MeshBasicMaterial({color:0x030304})); pit.rotation.x=-Math.PI/2; pit.position.set(ox+11,-.25,6.9); scene.add(pit); }
   // station shell: back (south) wall tiled, ceiling, ends
@@ -2293,8 +2307,9 @@ inZone("alley",()=>{
     gd.position.set(ox+9.7,1.5,5.78); gd.rotation.y=Math.PI; scene.add(gd); }
   const posterTex=(lines,bg)=>tex((g,s)=>{ g.fillStyle=bg; g.fillRect(6,4,s-12,s-8); g.fillStyle="rgba(0,0,0,.25)"; g.fillRect(6,s*.62,s-12,s*.3);
     g.fillStyle="#c8beac"; g.font="bold 17px Courier New"; g.textAlign="center"; lines.forEach((l2,i2)=>g.fillText(l2,s/2,26+i2*20)); grime(g,s,8,.35); },128);
-  [[ox+6.2,1.7,["ROOM","TO","LET"], "#4a4438",0],[ox+16.4,1.9,["MISSING","HAVE YOU","SEEN"], "#54483a",.08],[ox+16.9,1.6,["",""],"#3a3a40",-.1]].forEach(([px2,py2,ls,bg,rz])=>{
-    const po=new THREE.Mesh(new THREE.PlaneGeometry(.62,.82),new THREE.MeshBasicMaterial({map:posterTex(ls,bg),transparent:true}));
+  const flyerTex=tex((g,s)=>{ g.fillStyle="#54483a"; g.fillRect(0,0,s,s); g.fillStyle="#c8beac"; g.font="bold 40px Courier New"; g.textAlign="center"; g.fillText("MISSING",s/2,s/2); },256); paintArt(flyerTex,"flyer-tex.jpg");
+  [[ox+6.2,1.7,["ROOM","TO","LET"], "#4a4438",0],[ox+16.4,1.9,["MISSING","HAVE YOU","SEEN"], "#54483a",.08],[ox+17.05,1.55,["MISSING"],"#3a3a40",-.1]].forEach(([px2,py2,ls,bg,rz])=>{
+    const po=new THREE.Mesh(new THREE.PlaneGeometry(.62,.82),new THREE.MeshBasicMaterial({map:ls[0]==="MISSING"?flyerTex:(()=>{ const pt=posterTex(ls,bg); if(ls[0]==="ROOM")paintArt(pt,"poster-roomtolet.jpg"); return pt; })(),transparent:true}));
     po.position.set(px2,py2,-3.78); po.rotation.z=rz; scene.add(po); });
   // ══ chain-link fence partition near the dead end — the neon world beyond, out of reach ══
   { const fenceTex=tex((g,s)=>{ g.clearRect(0,0,s,s); g.strokeStyle="rgba(120,126,134,.8)"; g.lineWidth=2;
@@ -2658,7 +2673,7 @@ function ledgeSecond(){
   say(null,"He climbs up the way he used to. One hand on the wet stone. Then both.",4200);
 }
 function endingA(){
-  GS.ending="A"; document.exitPointerLock?.();
+  GS.ending="A"; document.exitPointerLock?.(); preloadArt("ending-a.jpg");
   // no fall is shown. He looks at the city one more time, then at the street, and the picture goes
   const e=eyeNow(), f=$("fader");
   later(()=>say(null,"The city is very quiet from here. It always was. That was the point of coming up.",5200),600);
@@ -2837,7 +2852,7 @@ function metroLogic(dt){
 }
 function endingB(){
   // he sits; the doors close; the platform slides away; the tunnel; and then light that is not a lamp
-  document.exitPointerLock?.(); buildRideFx(); GS.ending="B";
+  document.exitPointerLock?.(); buildRideFx(); GS.ending="B"; preloadArt("ending-b.jpg");
   const seat=()=>[trainGrp.position.x+2.7,TRAIN_FLOOR+1.2,trainGrp.position.z+.3], e=eyeNow(), s0=seat(), f=$("fader"); let scroll=0, white=false;
   try{ AU.doorChime(); }catch(e2){}
   later(()=>{ try{ AU.trainStart(); }catch(e2){} say(null,"The doors close on the platform, and on the year.",4600); },2600);
@@ -2924,7 +2939,9 @@ function finishGame(title,body){
   $("endTitle").textContent=title;
   $("endBody").innerHTML=body;
   $("endStats").textContent=`NOTES ${collected.size}/${JOURNAL_ORDER.length} · TIME ${Math.round((performance.now()-startTime)/1000)}s`;
-  const e=$("endScreen"); e.style.display="flex"; requestAnimationFrame(()=>e.style.opacity=1); running=false;
+  const e=$("endScreen"), art=title==="THE DROP"?"ending-a.jpg":title==="TRANSIT"?"ending-b.jpg":null;
+  if(art)e.style.background=`linear-gradient(rgba(2,3,4,.6),rgba(2,3,4,.86)),url(${ART(art)}) center/cover #000`;
+  e.style.display="flex"; requestAnimationFrame(()=>e.style.opacity=1); running=false;
 }
 /* ════════════════════════════════════════════════════════════════
    ART PASS — per-level light, atmosphere and dressing
