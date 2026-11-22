@@ -218,7 +218,7 @@ function paintArt(t,file,post){ const im=new Image(); im.onload=()=>{ const c=t.
 paintArt(TEX.photo,"photo-tex.jpg");
 /* Generated surface textures replace the procedural ones once loaded (the procedural drawing remains the fallback). */
 [["wallpaper","tex-wallpaper"],["wallpaperOld","tex-wallpaper-old"],["concrete","tex-concrete"],["woodFloor","tex-wood-floor"],["planksOld","tex-planks-old"],
- ["tile","tex-tile"],["ceiling","tex-ceiling"],["hallFloor","tex-hall-floor"],["metal","tex-metal"],["metroMetal","tex-metro-metal"],["metroFloor","tex-metro-floor"],["runner","tex-runner"]
+ ["tile","tex-tile"],["ceiling","tex-ceiling"],["hallFloor","tex-concrete"],["metal","tex-metal"],["metroMetal","tex-metro-metal"],["metroFloor","tex-metro-floor"],["runner","tex-runner"]
 ].forEach(([k,f])=>paintArt(TEX[k],f+".jpg"));
 paintArt(TEX.doorWood,"tex-door-wood.jpg",(g,s)=>{ g.strokeStyle="rgba(14,8,4,.85)"; g.lineWidth=4; g.strokeRect(30,24,s-60,s*.38); g.strokeRect(30,s*.5,s-60,s*.42); });
 TEX.noteSmall=tex((g,s)=>{ g.fillStyle="#cfc6ac"; g.fillRect(0,0,s,s); grime(g,s,8,.15,"120,100,60");
@@ -547,14 +547,19 @@ function mkPhone(){ const g=group();
   put(g,rod(.006,.006,.2,4,M.black),-.13,.012,.06,Math.PI/2,0,.5);                          // cord
   return g; }
 /* ── prop makers: platform/street/corridor furniture (PS2-era readable silhouettes) ── */
-function mkBench(){ const g=group(); const wood=new THREE.MeshLambertMaterial({map:TEX.doorWood});
-  for(let i=0;i<3;i++)put(g,box(1.7,.045,.125,wood),0,.46,-.13+i*.14);
-  for(let i=0;i<2;i++)put(g,box(1.7,.125,.04,wood),0,.64+i*.17,.21+i*.02,-.2);
-  for(const lx of[-.76,0,.76]){                                                             // cast-iron frames
-    put(g,box(.06,.44,.06,M.metalDark),lx,.22,-.17); put(g,box(.06,.44,.06,M.metalDark),lx,.22,.17);
-    put(g,box(.06,.04,.46,M.metalDark),lx,.43,0); put(g,box(.05,.56,.05,M.metalDark),lx,.7,.23,-.2);
-    put(g,box(.09,.02,.48,M.metalDark),lx,.01,0); }
-  for(const lx of[-.82,.82]){ put(g,box(.05,.2,.05,M.metalDark),lx,.56,-.17); put(g,box(.05,.035,.42,M.metalDark),lx,.66,0); }   // armrests
+function mkBench(){ const g=group(); const wood=new THREE.MeshLambertMaterial({map:TEX.doorWood}), iron=M.metalDark;
+  // seat: four slats with a hairline gap, front edge at -z, backrest at +z (rotated by callers)
+  for(let i=0;i<4;i++)put(g,box(1.8,.04,.09,wood),0,.45,-.2+i*.105);
+  // backrest: three slats leaning BACK (top toward +z) at a relaxed angle
+  const lean=.22;
+  for(let i=0;i<3;i++){ const y=.6+i*.13; put(g,box(1.8,.1,.03,wood),0,y,.19+(y-.45)*Math.tan(lean)+.02,lean); }
+  for(const lx of[-.82,0,.82]){                                                              // cast-iron side frames
+    put(g,box(.055,.45,.055,iron),lx,.225,-.2);                                              // front leg
+    put(g,box(.055,.45,.055,iron),lx,.225,.2);                                               // rear leg
+    put(g,box(.05,.06,.48,iron),lx,.4,0);                                                    // seat rail
+    put(g,box(.05,.56,.05,iron),lx,.45+.28*Math.cos(lean),.2+.28*Math.sin(lean),lean);      // back post, leaning back
+    put(g,box(.06,.025,.52,iron),lx,.0125,0); }                                              // skid foot
+  for(const lx of[-.9,.9]){ put(g,box(.045,.22,.045,iron),lx,.56,-.17); put(g,box(.05,.035,.44,iron),lx,.675,.02); }   // armrests
   return g; }
 function mkVending(on=true){ const g=group();
   const body=box(.9,1.8,.6,surf(TEX.metroMetal,.9,1.8,.55,on?0x63362e:0x3a3030)); body.position.y=.9; g.add(body);
