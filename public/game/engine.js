@@ -1874,7 +1874,7 @@ inZone("arrival",()=>{
       say(null,"Through the station exit and into the rain.",4200);
       AU.trainDepart(); AU.stationStop();
       later(()=>{ AU.windStart();
-        travel("street",-96,26.5,0,()=>{
+        travel("street",-92,25.2,0,()=>{
           say(null,"Eleven-forty. The last block home. Rain the exact temperature of being alone. The prescription bag has gone soft in his pocket.",6500);
           setObjective("Home. <b>Up the front steps of Haldane Court.</b>"); }); },1600);
     },{range:3.0}); }
@@ -1891,7 +1891,11 @@ inZone("arrival",()=>{
 /* ════════ ZONE: STREET (beat 4) ════════ */
 inZone("street",()=>{
   const ox=-100;
-  wetMat(floorPlane(ox+8,14,19.4,32,TEX.asphalt,1.6).material,.3,22);   // rain-slick road
+  // rain-slick road, in pieces so the subway stair shaft (x ox+6.9..9.1, z 26.8..29.4) is a real hole in the street
+  wetMat(floorPlane(ox+8,12.4,19.4,28.8,TEX.asphalt,1.6).material,.3,22);
+  wetMat(floorPlane(ox+8,29.7,19.4,.6,TEX.asphalt,1.6).material,.3,22);
+  wetMat(floorPlane((ox-1.7+ox+6.9)/2,28.1,(ox+6.9)-(ox-1.7),2.6,TEX.asphalt,1.6).material,.3,22);
+  wetMat(floorPlane((ox+9.1+ox+17.7)/2,28.1,(ox+17.7)-(ox+9.1),2.6,TEX.asphalt,1.6).material,.3,22);
   { const sw=new THREE.Mesh(new THREE.PlaneGeometry(2.2,32),surf(TEX.concrete,2.2,32,1)); sw.rotation.x=-Math.PI/2; sw.position.set(ox+.9,.02,14); scene.add(sw);
     const sw2=sw.clone(); sw2.position.x=ox+15.1; scene.add(sw2); }
   wall("z",-1.6,29.6,ox-1.6,19,0,TEX.brickExt,.5,.2); wall("z",-1.6,29.6,ox+17.6,19,0,TEX.brickExt,.5,.2);
@@ -1983,38 +1987,49 @@ inZone("street",()=>{
     // Exact discrete ground profile for the two visible stoop treads.
     ZONES.street.ground=(x,z)=>{
       if(Math.abs(x-(ox+4))<1.55){ if(z<=.65)return .44; if(z<1.0)return .28; if(z<1.36)return .14; }
-      if(Math.abs(x-(ox+4))<.85){ if(z>=27.6&&z<=28.6)return .4; if(z>26.95&&z<27.6)return (z-26.95)/.65*.4; }
       return 0; };
   }
-  // metro entrance (south end) — Ending B: a proper raised entrance, steps up, then a dark flight going down
-  { const conc2=new THREE.MeshLambertMaterial({map:TEX.concrete});
-    // two entry steps up to the landing (climbable — ground fn), then the landing slab
-    for(let i2=0;i2<2;i2++){ const top=.2*(i2+1);
-      const st=box(1.7,top,.34,conc2); st.position.set(ox+4,top/2,27.13+i2*.32); scene.add(st); }
-    const land=box(1.7,.4,1.1,conc2); land.position.set(ox+4,.2,28.16); scene.add(land);
-    // tiled side walls covering the descent
-    for(const wx of[ox+3.1,ox+4.9]){ const sw2=box(.18,1.9,2.6,surf(TEX.concrete,2.6,1.9,1.1,0x7f858c));
-      sw2.position.set(wx,.95,28.5); scene.add(sw2); addCollider(wx,28.5,.25,2.6); }
-    // header over the mouth, carrying the SUBWAY sign
-    const hdr=box(1.98,.5,.24,M.metalDark); hdr.position.set(ox+4,1.85,28.72); scene.add(hdr);
-    const ms=new THREE.Mesh(new THREE.PlaneGeometry(1.7,.32),new THREE.MeshBasicMaterial({map:tex((g,s)=>{ g.fillStyle="#0a2416";g.fillRect(0,0,s,s);
-      g.fillStyle="#5ac878"; g.font="bold 60px Courier New"; g.textAlign="center"; g.fillText("SUBWAY",s/2,s/2+18); },256)})); ms.position.set(ox+4,1.85,28.59); ms.rotation.y=Math.PI; scene.add(ms);
-    // the descending flight, visible past the chain, swallowed by the dark
-    for(let i2=0;i2<5;i2++){ const dst=box(1.6,.16,.34,conc2);
-      dst.position.set(ox+4,.32-.28*i2,28.85+i2*.3); scene.add(dst); }
-    { const pit=new THREE.Mesh(new THREE.PlaneGeometry(1.6,1.4),new THREE.MeshBasicMaterial({color:0x020303}));
-      pit.position.set(ox+4,-.3,29.62); pit.rotation.x=-.5; scene.add(pit); }
-    const gl=new THREE.PointLight(0x3aa860,.7,5,1.7); gl.position.set(ox+4,.5,29.1); scene.add(gl);
-    // chain across the mouth
-    for(const sx2 of[ox+3.25,ox+4.75]){ const stub=box(.07,.75,.07,M.metalDark); stub.position.set(sx2,.78,28.62); scene.add(stub); }
-    for(let c2=0;c2<5;c2++){ const t2=c2/4; const link=box(.3,.035,.035,M.metal);
-      link.position.set(ox+3.35+t2*1.3,1.05-Math.sin(t2*Math.PI)*.16,28.62); link.rotation.z=Math.cos(t2*Math.PI)*.25; scene.add(link); }
-    addCollider(ox+4,28.68,1.7,.3,"metroRail");
-    interact(ms,"The subway",()=>{
+  // ── SUBWAY ENTRANCE — a real sunken stair at the end of the street, on the road's axis ──
+  // Scaled to a person: 2.2 m wide shaft, 1.1 m railings, sign gantry 2.6 m up, steps 17 cm rise.
+  { const cx=ox+8, Z0=26.8, Z1=29.4, W=1.1;                                  // shaft x cx±W, z Z0..Z1
+    const conc2=new THREE.MeshLambertMaterial({map:TEX.concrete,color:0x9aa09a});
+    const tileM=surf(TEX.tile,2.4,1.6,.8,0x9aa098), iron=new THREE.MeshLambertMaterial({color:0x1d2a22});
+    const globeM=new THREE.MeshBasicMaterial({color:0x8affb0});
+    // paved apron around the mouth (the shaft itself stays open)
+    for(const [bx,bz,bw,bd] of[[cx,26.3,4.8,1.0],[cx,29.7,4.8,.6],[cx-(W+2.4)/2-.0,28.1,2.4-W+.0,2.6],[cx+(W+2.4)/2,28.1,2.4-W,2.6]]){
+      const ap=box(bw,.05,bd,conc2); ap.position.set(bx,.025,bz); scene.add(ap); }
+    // shaft: tiled walls, end wall, descending treads
+    for(const sx of[-1,1]){ const w2=box(.15,1.5,Z1-Z0,tileM); w2.position.set(cx+sx*(W-.075),-.75,(Z0+Z1)/2); scene.add(w2); }
+    const endw=box(W*2,1.5,.15,tileM); endw.position.set(cx,-.75,Z1+.075); scene.add(endw);
+    const STEPS=8, TD=(Z1-Z0-.2)/STEPS;
+    for(let i2=0;i2<STEPS;i2++){ const top=-.17*(i2+1), st=box(W*2-.3,.3,TD+.01,conc2); st.position.set(cx,top-.15,Z0+.1+TD*(i2+.5)); scene.add(st); }
+    const dark=new THREE.Mesh(new THREE.PlaneGeometry(1.7,1.1),new THREE.MeshBasicMaterial({color:0x010202})); dark.position.set(cx,-.82,Z1-.005); dark.rotation.y=Math.PI; scene.add(dark);
+    // parapet + iron railing on both long sides and the far end
+    const run=(x0,z0,x1,z1)=>{ const L=Math.hypot(x1-x0,z1-z0), a2=Math.atan2(x1-x0,z1-z0); const m=new THREE.Group(); m.position.set((x0+x1)/2,0,(z0+z1)/2); m.rotation.y=a2;
+      put(m,box(.16,.4,L,conc2),0,.2,0); put(m,box(.05,.05,L,iron),0,1.08,0); put(m,box(.04,.04,L,iron),0,.74,0);
+      for(let k=0;k<=Math.round(L/.9);k++){ const t=-L/2+k*(L/Math.round(L/.9)); put(m,box(.05,.7,.05,iron),0,.75,t); }
+      scene.add(m); };
+    run(cx-W-.0,Z0,cx-W,Z1+.15); run(cx+W,Z0,cx+W,Z1+.15); run(cx-W,Z1+.15,cx+W,Z1+.15);
+    // gantry: two posts with green globes, a sign board between them at 2.6 m, hung over the stair head
+    for(const sx of[-1,1]){ const post=box(.1,2.9,.1,iron); post.position.set(cx+sx*(W+.1),1.45,Z0-.05); scene.add(post);
+      const gl=new THREE.Mesh(new THREE.SphereGeometry(.17,10,8),globeM); gl.position.set(cx+sx*(W+.1),3.0,Z0-.05); scene.add(gl); }
+    const bar=box((W+.1)*2+.1,.5,.1,iron); bar.position.set(cx,2.6,Z0-.05); scene.add(bar);
+    const ms=new THREE.Mesh(new THREE.PlaneGeometry(2.1,.4),new THREE.MeshBasicMaterial({map:tex((g,s)=>{ g.fillStyle="#0a2416";g.fillRect(0,0,s,s);
+      g.fillStyle="#5ac878"; g.font="bold 64px Courier New"; g.textAlign="center"; g.fillText("SUBWAY",s/2,s/2+20); g.strokeStyle="#5ac878"; g.lineWidth=5; g.strokeRect(6,6,s-12,s-12); },256)}));
+    ms.position.set(cx,2.6,Z0-.11); ms.rotation.y=Math.PI; scene.add(ms);
+    // light: green wash on the approach and up from the stair
+    const gl1=new THREE.PointLight(0x3aa860,.8,7,1.6); gl1.position.set(cx,2.3,Z0-.8); scene.add(gl1);
+    const gl2=new THREE.PointLight(0x4ac070,1.5,6,1.4); gl2.position.set(cx,.5,Z0+1.3); scene.add(gl2);
+    // chain across the stair head; colliders keep him on the pavement
+    for(let c2=0;c2<6;c2++){ const t2=c2/5; const link=box(.28,.035,.035,M.metal);
+      link.position.set(cx-W+.12+t2*(2*W-.24),1.0-Math.sin(t2*Math.PI)*.14,Z0-.02); link.rotation.z=Math.cos(t2*Math.PI)*.25; scene.add(link); }
+    addCollider(cx,Z0-.02,2*W+.4,.3,"metroRail"); addCollider(cx-W,(Z0+Z1)/2,.3,Z1-Z0+.3); addCollider(cx+W,(Z0+Z1)/2,.3,Z1-Z0+.3); addCollider(cx,Z1+.15,2*W+.3,.3);
+    const trig=box(2.6,2.4,1.8,new THREE.MeshBasicMaterial({visible:false,side:THREE.DoubleSide})); trig.position.set(cx,1.2,Z0-.6); scene.add(trig);
+    interact(trig,"The subway",()=>{
       if(!GS.metroOpen){ say("THOMAS","Not tonight. Tonight ends at home."); return; }
       travel("metro",803,3,-Math.PI/2,()=>{ AU.trainStart();
         say(null,"The platform is empty except for the rain that followed him down — and the shape at the far end of it.",5200);
-        setObjective("She is waiting on the platform. <b>Go to her.</b>"); }); });
+        setObjective("She is waiting on the platform. <b>Go to her.</b>"); }); },{range:3.4});
   }
   for(const z of[5,13,21])for(const x of[ox+1.4,ox+14.6]){ const L=mkStreetLamp(); at(L,x,0,z,x<ox+4?0:Math.PI); addCollider(x,z,.3,.3); }
 });
