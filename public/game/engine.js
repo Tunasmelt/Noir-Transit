@@ -248,7 +248,7 @@ const ZONES={
   arrival: {ox:900,oz:0, bounds:[898.6,921.4,1.2,7.2], fog:[0x090b10,3,22], bg:0x090b10, rain:false},
   street:  {ox:-100,oz:0, bounds:[-101.7,-83.6,-1.7,29.7], fog:[0x0c0e16,7,62], bg:0x0a0c12, rain:true},
   dream1:  {ox: 100,oz:0, bounds:[ 98.4,101.6,-.6,23.6],   fog:[0x54565a,4,30], bg:0x54565a, rain:false},
-  floor8:  {ox:   0,oz:0, bounds:[ .35,17.65,.35,8.85],    fog:[0x07070c,CFG.fogNear,CFG.fogFar], bg:0x07070c, rain:false},
+  floor8:  {ox:   0,oz:0, bounds:[ .35,23.65,.35,12.85],    fog:[0x07070c,CFG.fogNear,CFG.fogFar], bg:0x07070c, rain:false},
   lobbyG:  {ox: 200,oz:0, bounds:[200.35,209.65,.35,5.65], fog:[0x07070c,3,24], bg:0x07070c, rain:false},
   alley:   {ox: 300,oz:0, bounds:[300.35,321.65,-3.65,5.65], fog:[0x0b0d14,5,44], bg:0x090b10, rain:true},
   restock: {ox: 400,oz:0, bounds:[400.35,409.65,.35,7.65], fog:[0x0a0908,2.5,18], bg:0x0a0908, rain:false},
@@ -606,6 +606,38 @@ function mkSedan(){ const g=group(); const bodyM=wetMat(lam(0x2c3438),.55,36), g
     put(g,box(.03,.1,.3,new THREE.MeshBasicMaterial({color:0x5a1410})),-2.115,.7,hz); }      // dead headlamps, dull tail-lamps
   put(g,box(.02,.1,.34,lam(0x8a8a78)),-2.12,.5,0);                                          // plate
   return g; }
+/* a proper panel van (front at +x, like the sedan): cab with raked screen and side glass, a slab-sided load box with sliding door seams,
+   rear doors, arches with real wheels, bumpers, mirrors, roof rails, dead lamps, plate and a faded name on the flank */
+function mkVan(col=0x6c716d){ const g=group(); const bodyM=wetMat(lam(col),.5,34), glassM=M.glassDark, trim=wetMat(lam(0x15181a),.4,30), seam=lam(0x1c2020);
+  put(g,box(5.0,.62,1.9,bodyM),0,.7,0);                                                       // lower body slab
+  put(g,box(1.25,.14,1.84,bodyM),2.05,.98,0,0,0,-.08);                                        // bonnet
+  put(g,box(1.55,.78,1.84,bodyM),1.05,1.38,0);                                                // cab
+  put(g,box(1.5,.06,1.8,bodyM),1.05,1.8,0);                                                   // cab roof
+  put(g,box(3.35,1.14,1.9,bodyM),-.88,1.4,0);                                                 // load box
+  put(g,box(3.3,.06,1.84,bodyM),-.88,2.0,0);                                                  // box roof
+  put(g,box(.05,.62,1.7,glassM),1.82,1.4,0,0,0,.42);                                          // raked windscreen
+  for(const sz of[-1,1]){
+    put(g,box(.95,.46,.02,glassM),1.28,1.52,sz*.93); put(g,box(.3,.4,.02,glassM),.52,1.52,sz*.93);   // door glass + quarter light
+    put(g,box(.04,.8,.03,seam),.72,1.38,sz*.94); put(g,box(.04,.8,.03,seam),1.78,1.38,sz*.94);       // cab door seams
+    put(g,box(.04,1.0,.03,seam),-.4,1.42,sz*.955); put(g,box(.04,1.0,.03,seam),-2.2,1.42,sz*.955);   // sliding door / panel seams
+    put(g,box(.14,.03,.02,M.chrome),.6,1.18,sz*.95); put(g,box(.14,.03,.02,M.chrome),-.5,1.2,sz*.96); // handles
+    put(g,box(.12,.2,.12,trim),1.88,1.5,sz*1.04);                                              // mirror
+    put(g,box(.05,.05,3.1,M.metalDark),-.88,2.06,sz*.7); }                                     // roof rails
+  for(const rx of[-1.7,-.9,-.1])put(g,box(.04,.05,1.4,M.metalDark),rx,2.07,0);                  // roof bars
+  for(const [wx,wz] of[[-1.45,-.9],[1.65,-.9],[-1.45,.9],[1.65,.9]]){
+    put(g,rod(.37,.37,.24,14,M.rubber),wx,.37,wz,Math.PI/2); put(g,rod(.2,.2,.25,8,lam(0x54585a)),wx,.37,wz,Math.PI/2);
+    put(g,box(.9,.1,.06,trim),wx,.76,wz*1.03); }                                              // arch lips
+  put(g,box(5.14,.16,1.96,trim),0,.4,0);                                                      // sill + bumpers
+  put(g,box(.06,.3,1.2,trim),2.66,.7,0);                                                      // grille
+  for(const hz of[-.7,.7]){ put(g,box(.04,.16,.3,new THREE.MeshBasicMaterial({color:0x4a463a})),2.66,.78,hz);   // dead headlamps
+    put(g,box(.04,.5,.12,new THREE.MeshBasicMaterial({color:0x5a1410})),-2.52,1.0,hz*1.18); }   // tail lamps up the rear pillars
+  for(const dz of[-.45,.45])put(g,box(.04,.9,.03,seam),-2.52,1.4,dz*0+dz); put(g,box(.04,1.0,.03,seam),-2.52,1.4,0);   // rear door seams
+  put(g,box(.02,.12,.36,lam(0x8a8a78)),-2.55,.62,0);                                          // plate
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(2.3,.5),new THREE.MeshLambertMaterial({transparent:true,map:tex((c,sz)=>{ c.clearRect(0,0,sz,sz);
+    c.fillStyle="rgba(190,186,170,.78)"; c.font="bold 34px Courier New"; c.textAlign="center"; c.fillText("ADAIR & SON",sz/2,sz*.42); c.font="22px Courier New"; c.fillText("DELIVERIES · HALDANE WARD",sz/2,sz*.62);
+    c.fillStyle="rgba(0,0,0,.35)"; for(let k=0;k<30;k++)c.fillRect(Math.random()*sz,Math.random()*sz,1+Math.random()*6,1+Math.random()*2); },256)}));
+  sign.position.set(-1.1,1.4,.962); g.add(sign); const sign2=sign.clone(); sign2.position.z=-.962; sign2.rotation.y=Math.PI; g.add(sign2);
+  return g; }
 function mkPhoneBooth(){ const g=group(); const fr=new THREE.MeshLambertMaterial({color:0x35424a});
   for(const [cx,cz] of[[-.42,-.42],[.42,-.42],[-.42,.42],[.42,.42]]){ const p=box(.08,2.3,.08,fr); p.position.set(cx,1.15,cz); g.add(p); }
   const roof=box(1.02,.1,1.02,fr); roof.position.y=2.33; g.add(roof);
@@ -845,19 +877,18 @@ doorTrim(17.92,0,1.1,Math.PI/2);
   const trim1=new THREE.Mesh(new THREE.PlaneGeometry(16,.08),new THREE.MeshLambertMaterial({color:0x574038}));
   trim1.rotation.x=-Math.PI/2; trim1.position.set(9,.014,.52); scene.add(trim1);
   const trim2=trim1.clone(); trim2.position.z=1.68; scene.add(trim2);
-  for(const [sx,lit] of[[4.3,false],[9.5,true],[14.5,false]]){
+  for(const [sx,lit] of[[4.4,false],[8.5,true],[13.4,false]]){   // in the gaps between doors 8002–8006 (9.5 sat on the 8005 door)
     const sc=mkSconce(); sc.position.set(sx,2.05,.1); scene.add(sc);
     if(lit){ const sl=new THREE.PointLight(0xc89858,.5,4.5,1.8); sl.position.set(sx,2.15,.4); scene.add(sl); } }
   const hc=mkHoseCab(); hc.position.set(15.2,1.5,2.14); hc.rotation.y=Math.PI; scene.add(hc);
   interact(hc,"FIRE HOSE — break glass",()=>say(null,"The glass is already cracked. The hose inside has perished into one solid coil. Some emergencies outlast their equipment."));
   // the drip: ceiling stain, bucket, ring of water — the floor8 drip sound made flesh
-  const stainTex=tex((g,s)=>{ g.clearRect(0,0,s,s);
-    for(let i=0;i<7;i++){ const r=18+Math.random()*26, x=s/2+(Math.random()-.5)*44, y=s/2+(Math.random()-.5)*44;
-      const gr=g.createRadialGradient(x,y,r*.2,x,y,r);
-      gr.addColorStop(0,"rgba(58,50,40,.55)"); gr.addColorStop(.7,"rgba(48,42,34,.3)"); gr.addColorStop(1,"rgba(48,42,34,0)");
+  const stainTex=tex((g,s)=>{ g.clearRect(0,0,s,s);   // a brown water bloom with a tide line, irregular, no hard outline
+    for(let i=0;i<14;i++){ const r=10+Math.random()*30, x=s/2+(Math.random()-.5)*60, y=s/2+(Math.random()-.5)*44;
+      const gr=g.createRadialGradient(x,y,r*.1,x,y,r); gr.addColorStop(0,"rgba(110,92,62,.09)"); gr.addColorStop(.8,"rgba(100,82,54,.07)"); gr.addColorStop(1,"rgba(84,66,40,0)");
       g.fillStyle=gr; g.beginPath(); g.arc(x,y,r,0,7); g.fill(); }
-    g.strokeStyle="rgba(70,60,46,.5)"; g.lineWidth=2; g.beginPath(); g.arc(s/2,s/2,52,0,7); g.stroke(); },128);
-  const stain=new THREE.Mesh(new THREE.PlaneGeometry(1.4,1.4),new THREE.MeshLambertMaterial({map:stainTex,transparent:true,depthWrite:false}));
+    for(let i=0;i<5;i++){ const x=s/2+(Math.random()-.5)*50, y=s/2+(Math.random()-.5)*36; g.fillStyle="rgba(90,72,46,.12)"; g.beginPath(); g.ellipse(x,y,3+Math.random()*7,2+Math.random()*4,Math.random()*3,0,7); g.fill(); } },128);
+  const stain=new THREE.Mesh(new THREE.PlaneGeometry(1.1,.8),new THREE.MeshLambertMaterial({map:stainTex,transparent:true,depthWrite:false}));
   stain.rotation.x=Math.PI/2; stain.position.set(11.2,2.685,1.6); scene.add(stain);
   const bucket=new THREE.Mesh(new THREE.CylinderGeometry(.17,.13,.3,10,1,true),new THREE.MeshLambertMaterial({map:TEX.metal,side:THREE.DoubleSide}));
   bucket.position.set(11.2,.15,1.6); scene.add(bucket); addCollider(11.2,1.6,.4,.4);
@@ -909,7 +940,7 @@ function flatShell(ox,mirror,skipWest){
   return {X};
 }
 const F1=flatShell(0,false);
-const F7=flatShell(9,true,true);
+/* 8007 is built on its own below: bigger than his (x 9..24, z 2.2..13.2), five rooms, real windows. */
 
 /* --- 8001 front door (hinged, functional) --- */
 let phoneAnswered=false, door8001Open=false;
@@ -970,90 +1001,135 @@ const kc=mkChair(); at(kc,6.2,0,7.6,-Math.PI/2);
 /* cold under-cabinet glow */
 { const L=new THREE.PointLight(0x9ab0c0,.35,2.5,2); L.position.set(5.6,1.0,8.7); scene.add(L); }
 
-/* ============ 8007 DRESSING (mirrored, one decade staler) ============ */
-/* entry: telephone table + landline (dial) + weak sconce */
-const telT=mkTable(.55,.4,.75,M.woodDark); at(telT,15.4,0,2.75,0); addCollider(15.4,2.75,.6,.45);
-const phone7=mkPhone(); at(phone7,15.4,.78,2.75,.3);
+/* ============ 8007 — HER FLAT, LARGER THAN HIS, ONE DECADE STALER ============
+   x 9..24, z 2.2..13.2. Front door in the south wall at x 16.05..16.95.
+   Living room  x 9..17,  z 2.2..8.4   books, the dining table and his note, the covered sofa, the boxes she was packing
+   Kitchen      x 17..24, z 2.2..7.0   open to the living room; the fridge carries her note
+   Bedroom      x 9..17,  z 8.4..13.2  stripped bed, two nightstands, the stuck drawer
+   Box room     x 17..24, z 7.0..13.2  what she had already packed; her desk under the window
+   Every collider matches its prop and every route keeps at least 1 m clear. */
+function mkFlatWindow(w=1.3,h=1.4){ const g=group();
+  const view=tex((c,sz)=>{ const gr=c.createLinearGradient(0,0,0,sz); gr.addColorStop(0,"#05070d"); gr.addColorStop(.55,"#121626"); gr.addColorStop(.8,"#3a2a24"); gr.addColorStop(1,"#1a1412");
+    c.fillStyle=gr; c.fillRect(0,0,sz,sz);
+    let x=0; while(x<sz){ const bw=10+Math.random()*26, bh=sz*(.25+Math.random()*.45); c.fillStyle=Math.random()<.5?"#07080c":"#0b0d12"; c.fillRect(x,sz-bh,bw-1,bh);
+      for(let wy=sz-bh+4;wy<sz-2;wy+=6)for(let wx=x+2;wx<x+bw-3;wx+=4)if(Math.random()<.16){ c.fillStyle=Math.random()<.75?"#d8b060":"#90b4c8"; c.globalAlpha=.55+Math.random()*.45; c.fillRect(wx,wy,2,3); c.globalAlpha=1; }
+      x+=bw; }
+    c.strokeStyle="rgba(170,185,205,.25)"; c.lineWidth=1; for(let k=0;k<70;k++){ const rx=Math.random()*sz, ry=Math.random()*sz; c.beginPath(); c.moveTo(rx,ry); c.lineTo(rx-2,ry+9); c.stroke(); } },128);
+  const glass=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map:view,color:0xa0a4a8})); glass.position.z=.005; g.add(glass);
+  const sheen=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({transparent:true,opacity:.07,color:0xc8d4dc,depthWrite:false})); sheen.position.z=.012; g.add(sheen);
+  const fr=M.woodDark;
+  for(const [bw,bh,x,y] of[[w+.12,.07,0,h/2+.03],[w+.12,.07,0,-h/2-.03],[.07,h+.12,-w/2-.03,0],[.07,h+.12,w/2+.03,0],[.04,h,0,0],[w,.04,0,.12]])put(g,box(bw,bh,.07,fr),x,y,.03);   // frame, mullion, transom
+  put(g,box(w+.24,.05,.18,fr),0,-h/2-.08,.08);                                                     // sill
+  for(const sx of[-1,1])put(g,box(.26,h+.3,.04,lam(0x3c3a40)),sx*(w/2+.12),.02,.06);               // curtains, drawn back
+  put(g,rod(.014,.014,w+.7,6,M.metalDark),0,h/2+.2,.07,0,0,Math.PI/2);                              // curtain rod
+  return g; }
+{ const X0=9, X1=24, Z0=2.2, Z1=13.2, wallT=TEX.wallpaperOld, tint=0xb9c2c8;
+  floorPlane((X0+X1)/2,(Z0+Z1)/2,X1-X0,Z1-Z0,TEX.planksOld,1.0);
+  ceilPlane((X0+X1)/2,(Z0+Z1)/2,X1-X0,Z1-Z0,H);
+  // shell. The corridor wall (z 2.2, x ≤ 18) and his flat's east wall (x 9, z ≤ 9.2) already stand: skin them on this side.
+  for(const seg of[[X0,doorGap8007[0]],[doorGap8007[1],18]]){ const len=seg[1]-seg[0];
+    const p=new THREE.Mesh(new THREE.PlaneGeometry(len,H),surf(wallT,len,H,.6,tint)); p.position.set((seg[0]+seg[1])/2,H/2,Z0+.085); scene.add(p); }
+  wall("x",18,X1,Z0,H,0,wallT,.6,.16);
+  { const p=new THREE.Mesh(new THREE.PlaneGeometry(9.2-Z0,H),surf(wallT,9.2-Z0,H,.6,tint)); p.rotation.y=Math.PI/2; p.position.set(X0+.09,H/2,(Z0+9.2)/2); scene.add(p); }
+  wall("z",9.2,Z1,X0,H,0,wallT,.6,.16);
+  wall("z",Z0,Z1,X1,H,0,wallT,.6,.16);
+  wall("x",X0,X1,Z1,H,0,wallT,.6,.16);
+  // partitions
+  wall("x",X0,17,8.4,H,0,wallT,.6,.14,[[15.3,16.3]]);     // living | bedroom, door
+  wall("z",7.0,Z1,17,H,0,wallT,.6,.14);                    // bedroom | box room, and the stub closing the living-room corner
+  wall("x",17,X1,7.0,H,0,wallT,.6,.14,[[19.6,20.7]]);     // kitchen | box room, door
+  baseboard("x",X0,X1,Z1,-1); baseboard("z",Z0,Z1,X0,1); baseboard("z",Z0,Z1,X1,-1); baseboard("x",18,X1,Z0,1); baseboard("x",X0,16.05,Z0,1);
+  // windows: bedroom and box room look north, the kitchen looks east over the sink
+  for(const [x,z,ry,w,h,y] of[[15.2,Z1-.085,Math.PI,1.3,1.45,1.55],[21.2,Z1-.085,Math.PI,1.5,1.45,1.55],[X1-.085,4.85,-Math.PI/2,1.15,.9,1.75]]){
+    const wnd=mkFlatWindow(w,h); wnd.position.set(x,y,z); wnd.rotation.y=ry; scene.add(wnd);
+    interact(wnd,"The window",()=>say(null,"Rain on the glass. The city carries on below, lit and indifferent, exactly as it did the night she left.")); }
+  { const rug=new THREE.Mesh(new THREE.PlaneGeometry(3.2,2.2),new THREE.MeshLambertMaterial({color:0x3a2e30})); rug.rotation.x=-Math.PI/2; rug.position.set(12.4,.012,6.2); scene.add(rug); }
+}
+/* entry: the telephone table just inside the door, the landline on it */
+const telT=mkTable(.6,.42,.76,M.woodDark); at(telT,17.75,0,2.58,0); addCollider(17.75,2.58,.66,.48);
+const phone7=mkPhone(); at(phone7,17.75,.79,2.58,.3);
 interact(phone7,"Eileen's landline",()=>{ openDial(); });
-// (removed lit sconce lamp beside the 8007 door)
-/* living: two FULL bookshelves against interior wall (x=13.5 divider region → use west living wall x=9 side? mirrored: use wall x=18? Doc: interior wall). Place against north living divider z=7 facing south */
-const shelf7a=mkShelf(true); at(shelf7a,12.75,0,6.7,Math.PI); addCollider(12.75,6.7,.95,.36);
-const shelf7b=mkShelf(true); at(shelf7b,13.75,0,6.7,Math.PI); addCollider(13.75,6.7,.95,.36);
+/* living: her books on the party wall */
+const shelf7a=mkShelf(true); at(shelf7a,9.28,0,5.8,Math.PI/2); addCollider(9.28,5.8,.38,.97);
+const shelf7b=mkShelf(true); at(shelf7b,9.28,0,6.85,Math.PI/2); addCollider(9.28,6.85,.38,.97);
 const pageCheck=()=>{ if(collected.has("p10")&&collected.has("p34")&&collected.has("p56"))
   setObjective("All three pages. <b>Dial the number</b> — Eileen's landline."); };
 interact(shelf7b,"Her books — one is bookmarked",()=>{ collectNote("p10"); AU.paper(); openNote("p10"); pageCheck(); });
-{ const tab=new THREE.Mesh(new THREE.PlaneGeometry(.05,.12),M.paper); tab.position.set(13.6,1.32,6.94); scene.add(tab); }
+{ const tab=new THREE.Mesh(new THREE.PlaneGeometry(.05,.12),M.paper); tab.position.set(9.5,1.32,6.75); tab.rotation.y=Math.PI/2; scene.add(tab); }
 interact(shelf7a,"Full bookshelf",()=>say("THOMAS","Every spine is hers. This is what she looked like before me."));
-/* dining table + 2 chairs, one pulled out */
-const dtable=mkTable(1.1,.8,.74); at(dtable,13.2,0,5.2); addCollider(13.2,5.2,1.1,.8);
-const dc1=mkChair(); at(dc1,13.2,0,4.6,0);
-const dc2=mkChair(); at(dc2,13.5,0,5.95,Math.PI-.5); // pulled out, askew — as if someone just left
-const grief=mkNote(); grief.position.set(13.2,.78,5.2); grief.rotation.z=.2; scene.add(grief);
+/* dining table, two chairs (one pulled out, askew), his long note */
+const dtable=mkTable(1.1,.8,.74); at(dtable,11.6,0,4.0); addCollider(11.6,4.0,1.15,.85);
+const dc1=mkChair(); at(dc1,11.6,0,3.35,0); addCollider(11.6,3.35,.45,.45);
+const dc2=mkChair(); at(dc2,11.95,0,4.78,Math.PI-.5); addCollider(11.95,4.78,.45,.45);
+const grief=mkNote(); grief.position.set(11.6,.78,4.0); grief.rotation.z=.2; scene.add(grief);
 interact(grief,"A long note in his handwriting",()=>{ collectNote("n_grief"); AU.paper(); openNote("n_grief"); });
-/* boxes: wall row + one mid-floor cluster (page 34 in pile) */
-const pile1=mkBoxPile(4); at(pile1,17.1,0,5.6,.3); addCollider(17.1,5.6,1.1,.9);
-const pile2=mkBoxPile(5); at(pile2,14.6,0,3.9,-.4); addCollider(14.6,3.9,1.1,.9);
-{ // labels in her hand, and the one box he keeps opening
-  const lbl=(t)=>decal(tex((g,s)=>{ g.clearRect(0,0,s,s); g.fillStyle="#3a3226"; g.font="bold 34px Courier New";
-    g.textAlign="center"; g.fillText(t,s/2,s/2+12); },256),.34,.11);
-  const l1=lbl("BOOKS"); l1.position.set(16.9,.5,5.05); l1.rotation.y=Math.PI+.3; scene.add(l1);
-  const l2=lbl("WINTER"); l2.position.set(17.35,.85,5.5); l2.rotation.y=Math.PI+.3; scene.add(l2);
-  const l3=lbl("KITCHEN"); l3.position.set(14.35,.5,3.42); l3.rotation.y=Math.PI-.4; scene.add(l3);
-  const ob=group(); const obm=box(.5,.34,.44,M.cardboard); obm.position.y=.17; ob.add(obm);
-  for(const [fx,fr] of[[-.24,-1.9],[.24,1.9]]){ const flap=box(.22,.02,.44,new THREE.MeshLambertMaterial({color:0x5c4a30}));
-    flap.position.set(fx,.36,0); flap.rotation.z=fr; ob.add(flap); }
+/* the boxes she was packing, the one he keeps opening */
+const pile2=mkBoxPile(5); at(pile2,14.7,0,4.6,-.4); addCollider(14.7,4.6,1.15,.95);
+const lbl7=(t)=>decal(tex((g,s)=>{ g.clearRect(0,0,s,s); g.fillStyle="#3a3226"; g.font="bold 34px Courier New";
+  g.textAlign="center"; g.fillText(t,s/2,s/2+12); },256),.34,.11);
+{ const l3=lbl7("KITCHEN"); l3.position.set(14.45,.5,4.12); l3.rotation.y=Math.PI-.4; scene.add(l3);
+  const tab=new THREE.Mesh(new THREE.PlaneGeometry(.14,.1),M.paper); tab.rotation.x=-Math.PI/2.3; tab.rotation.z=.4; tab.position.set(14.6,.74,4.5); scene.add(tab); }
+interact(pile2,"Half-packed boxes",()=>{ collectNote("p34"); AU.paper(); openNote("p34"); pageCheck(); });
+{ const ob=group(); const obm=box(.5,.34,.44,M.cardboard); obm.position.y=.17; ob.add(obm);
+  for(const [fx,fr] of[[-.24,-1.9],[.24,1.9]]){ const flap=box(.22,.02,.44,new THREE.MeshLambertMaterial({color:0x5c4a30})); flap.position.set(fx,.36,0); flap.rotation.z=fr; ob.add(flap); }
   const cloth=box(.34,.06,.3,new THREE.MeshLambertMaterial({color:0x5a4a52})); cloth.position.set(-.04,.36,.02); cloth.rotation.y=.4; ob.add(cloth);
   const bk=box(.2,.05,.14,new THREE.MeshLambertMaterial({color:0x4a3428})); bk.position.set(.1,.39,-.06); bk.rotation.y=-.3; ob.add(bk);
-  at(ob,15.7,0,5.15,.9); addCollider(15.7,5.15,.6,.55);
-  interact(ob,"An opened box",()=>say("THOMAS","Her scarf. A paperback with her place still kept. I open a box, any box, and I look for her in it."));}
-interact(pile2,"Half-packed boxes",()=>{ collectNote("p34"); AU.paper(); openNote("p34"); pageCheck(); });
-{ const tab=new THREE.Mesh(new THREE.PlaneGeometry(.14,.1),M.paper); tab.rotation.x=-Math.PI/2.3; tab.rotation.z=.4; tab.position.set(14.5,1.08,3.8); scene.add(tab); }
-interact(pile1,"Boxes against the wall",()=>say(null,"Taped, labeled in her hand: KITCHEN — BOOKS — WINTER. She was mid-move into 8001 when she stopped coming back."));
-/* bedroom mirrored (x 13.5..18... actually mirrored bedroom sits x 13.5..18): stripped bed, open wardrobe, TWO nightstands, page 56 in one */
-const bed7=mkBed(true); at(bed7,17.0,0,8.1,-Math.PI/2); addCollider(17.0,8.1,2.0,1.1);
-const ns7a=mkNightstand(); at(ns7a,17.4,0,8.95,Math.PI); addCollider(17.4,8.95,.5,.5);
-const ns7b=mkNightstand(); at(ns7b,17.4,0,7.25,0); addCollider(17.4,7.25,.5,.5);
-interact(ns7a,"Nightstand — the drawer is stuck",()=>{ AU.burst(.2,400,.3,1); collectNote("p56"); openNote("p56"); pageCheck(); });
-{ const tab=new THREE.Mesh(new THREE.PlaneGeometry(.1,.05),M.paper); tab.position.set(15.4,.52,8.57); scene.add(tab); }
-interact(ns7b,"Nightstand",()=>say(null,"Both of them, here. Nobody took one away in this flat."));
-const ward7=mkWardrobe(true); at(ward7,13.98,0,8.2,Math.PI/2); addCollider(13.98,8.2,.85,1.4);
-interact(ward7,"Wardrobe, open and empty",()=>say(null,"Hangers. Dust. The shape of clothes that left."));
-/* kitchenette mirrored (x 9..13.5): fridge carries THE note */
-const fridge7=mkFridge(); at(fridge7,9.7,0,8.8,Math.PI); addCollider(9.7,8.8,.75,.62);
-const fnote=new THREE.Mesh(new THREE.PlaneGeometry(.16,.2),M.paper); fnote.position.set(9.7,1.35,8.47); fnote.rotation.y=Math.PI; scene.add(fnote);
-{ const mag=new THREE.Mesh(new THREE.CylinderGeometry(.015,.015,.01,8),new THREE.MeshLambertMaterial({color:0x7a2a22})); mag.rotation.x=Math.PI/2; mag.position.set(9.7,1.43,8.46); scene.add(mag); }
-interact(fnote,"A note on the fridge",()=>{ collectNote("n_fridge"); AU.paper(); openNote("n_fridge");
-  if(!(collected.has("p10")&&collected.has("p34")&&collected.has("p56")))
-    setObjective("Her numbered pages: <b>the bookshelf · the half-packed boxes · the jammed drawer.</b> All in this flat."); });
-interact(fridge7,"Her refrigerator",()=>say(null,"Unplugged. Propped open with a spoon so it wouldn't grow anything. She thought of things like that."));
-const cs7=mkCounterSink(1.5); at(cs7,12.4,0,8.85,Math.PI); addCollider(12.4,8.85,1.5,.65);
-const stove7=mkStove(); at(stove7,11.1,0,8.85,Math.PI); addCollider(11.1,8.85,.65,.65);
-/* living room proper (ref SH2 flat 205: covered furniture, one chair alone in the middle of the room) */
+  at(ob,14.0,0,5.9,.9); addCollider(14.0,5.9,.6,.6);
+  interact(ob,"An opened box",()=>say("THOMAS","Her scarf. A paperback with her place still kept. I open a box, any box, and I look for her in it.")); }
+/* the covered sofa against the bedroom wall, a chair alone facing the boxes, the floor lamp, loose papers */
 { const sofa=group(); const sheet=new THREE.MeshLambertMaterial({color:0x8f8878});
   const body=box(1.9,.62,.85,sheet); body.position.y=.34; sofa.add(body);
   const back=box(1.86,.48,.22,sheet); back.position.set(0,.7,-.32); back.rotation.x=-.12; sofa.add(back);
   for(const ax of[-.83,.83]){ const arm=box(.24,.28,.8,sheet); arm.position.set(ax,.66,0); sofa.add(arm); }
   const hem=box(1.98,.44,.88,new THREE.MeshLambertMaterial({color:0x746d5d})); hem.position.y=.2; sofa.add(hem);
-  for(const fx of[-.5,.25,.7]){ const fold=box(.045,.52,.87,new THREE.MeshLambertMaterial({color:0x7d7666}));
-    fold.position.set(fx,.32,0); sofa.add(fold); }
-  at(sofa,10.6,0,5.9,Math.PI-.06); addCollider(10.6,5.9,2.1,1.0);
+  for(const fx of[-.5,.25,.7]){ const fold=box(.045,.52,.87,new THREE.MeshLambertMaterial({color:0x7d7666})); fold.position.set(fx,.32,0); sofa.add(fold); }
+  at(sofa,12.4,0,7.8,Math.PI-.04); addCollider(12.4,7.8,2.05,.95);
   interact(sofa,"A sofa under a dust sheet",()=>say(null,"The sheet has settled into the shape beneath it. Nobody has sat here in a year, and the sheet remembers that too."));
-  const lc=mkChair(); at(lc,12.6,0,5.0,2.4); addCollider(12.6,5.0,.5,.5);
+  const lc=mkChair(); at(lc,13.1,0,5.9,2.2); addCollider(13.1,5.9,.45,.45);
   interact(lc,"A chair, alone in the room",()=>say("THOMAS","Facing the boxes. Someone sat here deciding what was worth keeping. Then stopped deciding."));
   const fl7=group(); { const pole=box(.04,1.5,.04,M.metalDark); pole.position.y=.75; fl7.add(pole);
     const base7=new THREE.Mesh(new THREE.CylinderGeometry(.16,.18,.04,10),M.metalDark); base7.position.y=.02; fl7.add(base7);
     const shade7=new THREE.Mesh(new THREE.CylinderGeometry(.14,.2,.24,10,1,true),new THREE.MeshLambertMaterial({color:0x6a5c42,side:THREE.DoubleSide})); shade7.position.y=1.56; fl7.add(shade7); }
-  at(fl7,9.55,0,6.55,0); addCollider(9.55,6.55,.4,.4);
-  const kt7=mkTable(.8,.8,.72); at(kt7,12.4,0,7.62); addCollider(12.4,7.62,.8,.8);
-  { const cup=new THREE.Mesh(new THREE.CylinderGeometry(.045,.04,.09,8),new THREE.MeshLambertMaterial({color:0xc8c0b0})); cup.position.set(12.25,.77,7.6); scene.add(cup); } }
-/* old papers */
-const op=mkNote(); op.position.set(12.4,.005,4.3); op.rotation.z=1.2; scene.add(op);
+  at(fl7,10.25,0,7.95,0); addCollider(10.25,7.95,.36,.36); }
+const op=mkNote(); op.position.set(13.7,.005,3.2); op.rotation.z=1.2; scene.add(op);
 interact(op,"Loose papers",()=>say(null,"Grocery lists. A dentist's number. The archaeology of an ordinary life."));
-/* NO ceiling light in 8007 — flashlight territory. Sconce only. */
+/* kitchen: the run along the east wall, her fridge with THE note, a small table with one cup */
+const stove7=mkStove(); at(stove7,23.6,0,3.6,-Math.PI/2); addCollider(23.6,3.6,.66,.66);
+const cs7=mkCounterSink(1.5); at(cs7,23.6,0,4.85,-Math.PI/2); addCollider(23.6,4.85,.66,1.52);
+const fridge7=mkFridge(); at(fridge7,23.6,0,6.4,-Math.PI/2); addCollider(23.6,6.4,.64,.77);
+const fnote=new THREE.Mesh(new THREE.PlaneGeometry(.16,.2),M.paper); fnote.position.set(23.265,1.35,6.4); fnote.rotation.y=-Math.PI/2; scene.add(fnote);
+{ const mag=new THREE.Mesh(new THREE.CylinderGeometry(.015,.015,.01,8),new THREE.MeshLambertMaterial({color:0x7a2a22})); mag.rotation.z=Math.PI/2; mag.position.set(23.255,1.43,6.4); scene.add(mag); }
+interact(fnote,"A note on the fridge",()=>{ collectNote("n_fridge"); AU.paper(); openNote("n_fridge");
+  if(!(collected.has("p10")&&collected.has("p34")&&collected.has("p56")))
+    setObjective("Her numbered pages: <b>the bookshelf · the half-packed boxes · the jammed drawer.</b> All in this flat."); });
+interact(fridge7,"Her refrigerator",()=>say(null,"Unplugged. Propped open with a spoon so it wouldn't grow anything. She thought of things like that."));
+{ const kt7=mkTable(.8,.8,.72); at(kt7,20.4,0,4.5); addCollider(20.4,4.5,.85,.85);
+  const kc7=mkChair(); at(kc7,20.4,0,5.25,Math.PI); addCollider(20.4,5.25,.45,.45);
+  const cup=new THREE.Mesh(new THREE.CylinderGeometry(.045,.04,.09,8),new THREE.MeshLambertMaterial({color:0xc8c0b0})); cup.position.set(20.25,.77,4.45); scene.add(cup); }
+/* bedroom: stripped bed under the window wall, TWO nightstands (page 56 in one), the wardrobe open and empty */
+const bed7=mkBed(true); at(bed7,12.6,0,12.05,0); addCollider(12.6,12.05,1.1,2.05);
+const ns7a=mkNightstand(); at(ns7a,11.7,0,12.85,Math.PI); addCollider(11.7,12.85,.5,.5);
+const ns7b=mkNightstand(); at(ns7b,13.5,0,12.85,Math.PI); addCollider(13.5,12.85,.5,.5);
+interact(ns7a,"Nightstand — the drawer is stuck",()=>{ AU.burst(.2,400,.3,1); collectNote("p56"); openNote("p56"); pageCheck(); });
+{ const tab=new THREE.Mesh(new THREE.PlaneGeometry(.1,.05),M.paper); tab.position.set(11.7,.52,12.58); tab.rotation.y=Math.PI; scene.add(tab); }
+interact(ns7b,"Nightstand",()=>say(null,"Both of them, here. Nobody took one away in this flat."));
+const ward7=mkWardrobe(true); at(ward7,9.42,0,10.6,Math.PI/2); addCollider(9.42,10.6,.68,1.42);
+interact(ward7,"Wardrobe, open and empty",()=>say(null,"Hangers. Dust. The shape of clothes that left."));
+/* box room: what she had already packed, and her desk under the window */
+const pile1=mkBoxPile(5); at(pile1,23.15,0,8.4,.3); addCollider(23.15,8.4,1.15,1.0);
+{ const l1=lbl7("BOOKS"); l1.position.set(22.95,.5,7.85); l1.rotation.y=Math.PI+.3; scene.add(l1);
+  const l2=lbl7("WINTER"); l2.position.set(23.4,.85,8.3); l2.rotation.y=Math.PI+.3; scene.add(l2); }
+interact(pile1,"Boxes against the wall",()=>say(null,"Taped, labeled in her hand: KITCHEN — BOOKS — WINTER. She was mid-move into 8001 when she stopped coming back."));
+for(const [x,z,r,n] of[[23.15,10.0,-.2,4],[17.9,8.3,.5,3],[17.9,9.8,-.3,5],[18.4,12.45,.2,4]]){ const pb=mkBoxPile(n); at(pb,x,0,z,r); addCollider(x,z,1.15,1.0); }
+{ const desk=mkTable(1.3,.62,.75,M.woodDark); at(desk,21.2,0,12.75); addCollider(21.2,12.75,1.35,.66);
+  const dch=mkChair(); at(dch,21.2,0,12.05,0); addCollider(21.2,12.05,.45,.45);
+  const p2=mkNote(); p2.position.set(21.0,.76,12.7); p2.rotation.z=.4; scene.add(p2);
+  interact(desk,"Her desk",()=>say(null,"Cleared, except for a ring where a cup stood every morning. She always sat facing the window.")); }
+/* NO ceiling light in 8007 — the windows and the fridge are all it has. */
 
 /* reward drop items (hidden until dialed) */
-const piece1=mkPiece(); piece1.position.set(15.0,.03,3.1); piece1.visible=false; scene.add(piece1);
-const keyR=mkKey(); keyR.position.set(15.7,.03,3.2); keyR.rotation.y=1; keyR.visible=false; scene.add(keyR);
+const piece1=mkPiece(); piece1.position.set(17.0,.03,3.4); piece1.visible=false; scene.add(piece1);
+const keyR=mkKey(); keyR.position.set(17.5,.03,3.5); keyR.rotation.y=1; keyR.visible=false; scene.add(keyR);
 const ixPiece=interact(piece1,"Take Puzzle Piece #1",()=>{ piece1.visible=false; ixPiece.enabled=false; give("piece1","🧩","PIECE #1"); checkObjective(); }); ixPiece.enabled=false;
 const ixKey=interact(keyR,"Take the Old Restock key",()=>{ keyR.visible=false; ixKey.enabled=false; give("key_restock","🗝","RESTOCK"); checkObjective(); }); ixKey.enabled=false;
 
@@ -1224,6 +1300,7 @@ addEventListener("mousemove",e=>{ if(!locked||uiOpen)return;
   player.yaw-=e.movementX*.0022*SETTINGS.sens; player.pitch-=e.movementY*.0022*SETTINGS.sens;
   player.pitch=Math.max(-1.45,Math.min(1.45,player.pitch)); });
 
+const DOORWAYS={arrival:[[911,6.0,7.5]],metro:[[814,6.8,7.95]]};   // [centre x, z from, z to] of each train doorway the player walks through
 function collide(nx,nz){ const r=CFG.radius;
   for(const c of colliders){ if(!c.on||c.zone!==curZone)continue;
     const cx=Math.max(c.minX,Math.min(nx,c.maxX)), cz=Math.max(c.minZ,Math.min(nz,c.maxZ));
@@ -1754,10 +1831,15 @@ function dressTrain(g,o){ const dk=lam(0x23292d), roofM=lam(0x3a4246), hz=o.hz, 
     put(g,box(.3,.16,.3,dk),x+dir*.24,.42,0); put(g,box(.2,.5,hz*1.7,dk),x+dir*.1,.3,0);                  // coupler, buffer beam
   }
   // interior
-  for(const dx of o.doors)for(const sx of[-.6,.6])put(g,rod(.018,.018,1.78,6,M.metal),dx+sx,1.5,-hz+.42);
+  // grab poles run floor-to-ceiling and the roof rail sits tight under the roof, so nothing floats or ends short
+  const ceilY=o.roofY-.14, floorY=.6;
+  for(const dx of o.doors)for(const sx of[-.62,.62])put(g,rod(.02,.02,ceilY-floorY,8,M.chrome),dx+sx,(ceilY+floorY)/2,-hz+.42);
   for(const sx of o.seats){ put(g,box(1.36,.44,.07,lam(0x3c444c)),sx,o.seatY+.3,o.seatZ+.22,-.12); put(g,box(.04,.3,.42,dk),sx-.68,o.seatY+.12,o.seatZ); put(g,box(.04,.3,.42,dk),sx+.68,o.seatY+.12,o.seatZ); }
-  for(const cx of o.cars){ put(g,rod(.014,.014,o.carLen-.8,5,M.chrome),cx,2.16,-.1,0,0,Math.PI/2);
-    for(let x=cx-o.carLen/2+.8;x<cx+o.carLen/2-.6;x+=.7)put(g,box(.03,.2,.015,lam(0x8a8478)),x,2.05,-.1,(x*7%1-.5)*.3); }   // straps, some still swinging
+  for(const cx of o.cars){ const railY=ceilY-.07;
+    put(g,rod(.016,.016,o.carLen-.8,6,M.chrome),cx,railY,-.1,0,0,Math.PI/2);                              // roof grab rail
+    for(let x=cx-o.carLen/2+.8;x<=cx+o.carLen/2-.7;x+=2.4)put(g,box(.025,.07,.025,M.chrome),x,railY+.035,-.1);   // brackets up into the roof
+    for(let x=cx-o.carLen/2+1.2;x<cx+o.carLen/2-.9;x+=.8){ put(g,box(.015,.2,.015,lam(0x2a2e30)),x,railY-.11,-.1);   // strap hanging straight from the rail
+      put(g,rod(.05,.05,.012,10,lam(0x8a8478)),x,railY-.23,-.1,Math.PI/2); } }
 }
 
 /* ════════ ZONE: STREET (beat 4 + Ending B exit) ════════ */
@@ -1875,8 +1957,8 @@ inZone("arrival",()=>{
   arrTrain.position.set(ox+11,0,7.3); fitTrain(arrTrain); scene.add(arrTrain);
   // Train collision follows the stationary arrival train, leaving a real
   // doorway gap at the middle carriage entrance.
-  addCollider(ox+5.7,7.3,9.5,1.7,"arrivalTrain");     // carriage side, either side of a 1.1 m doorway
-  addCollider(ox+16.3,7.3,9.5,1.7,"arrivalTrain");
+  addCollider(ox+5.62,7.3,9.34,1.7,"arrivalTrain");   // carriage side, either side of a 1.32 m doorway (was 1.1 m: a diagonal step caught on the jambs)
+  addCollider(ox+16.38,7.3,9.34,1.7,"arrivalTrain");
   addCollider(ox+11,7.75,1.2,.5,"arrivalTrain");       // far side of the vestibule
   const trainInside=box(1.0,1.8,.7,new THREE.MeshBasicMaterial({visible:false,side:THREE.DoubleSide}));
   trainInside.position.set(ox+11,1.35,6.65); scene.add(trainInside);
@@ -2042,9 +2124,7 @@ inZone("street",()=>{
     // light: green wash on the approach and up from the stair
     const gl1=new THREE.PointLight(0x3aa860,.5,6,1.6); gl1.position.set(cx,2.3,Z0-.8); scene.add(gl1);
     const gl2=new THREE.PointLight(0x4ac070,1.5,6,1.4); gl2.position.set(cx,.5,Z0+1.3); scene.add(gl2);
-    // chain across the stair head; colliders keep him on the pavement
-    for(let c2=0;c2<6;c2++){ const t2=c2/5; const link=box(.2,.022,.022,M.metal);
-      link.position.set(cx-W+.12+t2*(2*W-.24),1.0-Math.sin(t2*Math.PI)*.14,Z0-.02); link.rotation.z=Math.cos(t2*Math.PI)*.25; scene.add(link); }
+    // colliders keep him on the pavement at the stair head (the loose chain links that hung here read as stray bars, so they are gone)
     addCollider(cx,Z0-.02,2*W+.4,.3,"metroRail"); addCollider(cx-W,(Z0+Z1)/2,.3,Z1-Z0+.3); addCollider(cx+W,(Z0+Z1)/2,.3,Z1-Z0+.3); addCollider(cx,Z1+.15,2*W+.3,.3);
     const trig=box(2.6,2.4,1.8,new THREE.MeshBasicMaterial({visible:false,side:THREE.DoubleSide})); trig.position.set(cx,1.2,Z0-.6); scene.add(trig);
     interact(trig,"The subway",()=>{
@@ -2058,7 +2138,7 @@ inZone("street",()=>{
 function enterBuilding(){
   setObjective("…"); AU.doorHeavy(); AU.windStop();
   say(null,"The key. The stairs. The door. He gets exactly as far as the hallway light switch — and the floor comes up to meet him.",5200);
-  later(()=>fadeTo(()=>{ setZone("dream1"); player.seated=false; canStand=false;
+  later(()=>fadeTo(()=>{ setZone("dream1"); player.seated=true; canStand=false;   // seated, as the dream was first written: he watches, he cannot walk
     seatPos={x:100,y:1.05,z:20}; player.x=100; player.z=20; player.yaw=0; player.pitch=0;
     dream1Sequence(); },1400),2400);
 }
@@ -2167,12 +2247,27 @@ inZone("lobbyG",()=>{
   // reception window on the east wall — counter, dark glass, a bell nobody answers
   { const cnt=box(.55,.95,1.9,M.woodDark); cnt.position.set(ox+9.66,.475,3); scene.add(cnt); addCollider(ox+9.66,3,.6,2.0);
     const top=box(.62,.05,2.0,new THREE.MeshLambertMaterial({color:0x4a3a28})); top.position.set(ox+9.64,.97,3); scene.add(top);
-    const glass=new THREE.Mesh(new THREE.PlaneGeometry(1.7,1.15),new THREE.MeshLambertMaterial({color:0x0c1210})); glass.position.set(ox+9.95,1.72,3); glass.rotation.y=-Math.PI/2; scene.add(glass);
-    for(const gz of[2.1,3.9]){ const jf=box(.08,1.35,.1,M.woodDark); jf.position.set(ox+9.93,1.72,gz); scene.add(jf); }
-    const hdw=box(.08,.12,1.9,M.woodDark); hdw.position.set(ox+9.93,2.36,3); scene.add(hdw);
+    // The glass used to sit behind the wall's face, so the frame showed lit wallpaper. Now: a dark back office painted on the
+    // wall plane, a sheet of glass in front of it with a sheen and a sliding-pane split, and the frame proud of the wall.
+    const office=new THREE.Mesh(new THREE.PlaneGeometry(1.74,1.2),new THREE.MeshBasicMaterial({map:tex((g,s)=>{ g.fillStyle="#07090a"; g.fillRect(0,0,s,s);
+        g.fillStyle="#141210"; g.fillRect(s*.06,s*.18,s*.5,s*.44);                                           // key cabinet
+        for(let r=0;r<4;r++)for(let c=0;c<7;c++){ g.fillStyle="#0a0908"; g.fillRect(s*.08+c*s*.067,s*.21+r*s*.1,s*.05,s*.07); if(Math.random()<.55){ g.fillStyle="#5a4a2a"; g.fillRect(s*.1+c*s*.067,s*.24+r*s*.1,3,7); } }
+        g.fillStyle="#100e0c"; g.fillRect(s*.6,s*.62,s*.36,s*.06); g.fillRect(s*.62,s*.68,s*.04,s*.3); g.fillRect(s*.9,s*.68,s*.04,s*.3);   // back desk
+        g.fillStyle="#1a1612"; g.fillRect(s*.7,s*.48,s*.03,s*.14); g.beginPath(); g.moveTo(s*.64,s*.48); g.lineTo(s*.79,s*.48); g.lineTo(s*.75,s*.4); g.lineTo(s*.68,s*.4); g.fill();   // lamp, off
+        g.fillStyle="rgba(200,190,160,.18)"; g.fillRect(s*.66,s*.6,s*.12,s*.02); grime(g,s,8,.3); },256),color:0x9a9a9a}));
+    office.position.set(ox+9.912,1.72,3); office.rotation.y=-Math.PI/2; scene.add(office);
+    const glass=new THREE.Mesh(new THREE.PlaneGeometry(1.74,1.2),new THREE.MeshBasicMaterial({transparent:true,depthWrite:false,map:tex((g,s)=>{ g.clearRect(0,0,s,s);
+        const gr=g.createLinearGradient(0,0,s,s); gr.addColorStop(0,"rgba(190,200,190,.0)"); gr.addColorStop(.45,"rgba(190,200,190,.10)"); gr.addColorStop(.52,"rgba(220,226,214,.22)"); gr.addColorStop(.6,"rgba(190,200,190,.04)"); gr.addColorStop(1,"rgba(190,200,190,0)");
+        g.fillStyle=gr; g.fillRect(0,0,s,s); g.fillStyle="rgba(210,214,200,.07)"; g.fillRect(0,0,s,s); },128)}));
+    glass.position.set(ox+9.895,1.72,3); glass.rotation.y=-Math.PI/2; scene.add(glass);
+    for(const gz of[2.1,3.9]){ const jf=box(.08,1.35,.1,M.woodDark); jf.position.set(ox+9.88,1.72,gz); scene.add(jf); }
+    { const mid=box(.05,1.2,.04,M.woodDark); mid.position.set(ox+9.885,1.72,3); scene.add(mid);                 // the two sliding panes meet here
+      const cut=box(.03,.1,.36,M.woodDark); cut.position.set(ox+9.885,1.14,3.45); scene.add(cut); }           // speaking slot rail
+    const hdw=box(.08,.12,1.9,M.woodDark); hdw.position.set(ox+9.88,2.36,3); scene.add(hdw);
+    const sillw=box(.1,.06,1.9,M.woodDark); sillw.position.set(ox+9.88,1.1,3); scene.add(sillw);
     const rs=decal(tex((g,s)=>{ g.fillStyle="#2a241c"; g.fillRect(0,0,s,s); g.fillStyle="#b8a878"; g.font="bold 26px Courier New";
       g.textAlign="center"; g.fillText("RECEPTION",s/2,s/2+8); grime(g,s,6,.25); },256),1.3,.3);
-    rs.position.set(ox+9.9,2.62,3); rs.rotation.y=-Math.PI/2; scene.add(rs);
+    rs.position.set(ox+9.86,2.62,3); rs.rotation.y=-Math.PI/2; scene.add(rs);
     const bell=group(); { const dome=new THREE.Mesh(new THREE.SphereGeometry(.055,10,8,0,7,0,1.6),new THREE.MeshLambertMaterial({color:0x9a8148})); dome.position.y=.03; bell.add(dome);
       const base2=new THREE.Mesh(new THREE.CylinderGeometry(.07,.08,.02,10),M.metalDark); base2.position.y=.01; bell.add(base2); }
     bell.position.set(ox+9.6,1.0,2.5); scene.add(bell);
@@ -2384,9 +2479,9 @@ inZone("alley",()=>{
   // crescent moon (state 2)
   // A camera-facing sprite (the old flat plane was edge-on to anyone looking up the canyon) hung in the slit of sky above the alley.
   moonSpr=new THREE.Sprite(new THREE.SpriteMaterial({transparent:true,opacity:.95,fog:false,depthWrite:false,map:tex((g,s)=>{
-    g.clearRect(0,0,s,s); const gl=g.createRadialGradient(s/2,s/2,10,s/2,s/2,s/2); gl.addColorStop(0,"rgba(220,226,235,.28)"); gl.addColorStop(1,"rgba(220,226,235,0)"); g.fillStyle=gl; g.fillRect(0,0,s,s);
+    g.clearRect(0,0,s,s); const gl=g.createRadialGradient(s/2,s/2,10,s/2,s/2,s/2); gl.addColorStop(0,"rgba(220,226,235,.16)"); gl.addColorStop(1,"rgba(220,226,235,0)"); g.fillStyle=gl; g.fillRect(0,0,s,s);
     const cr=document.createElement("canvas"); cr.width=cr.height=s; const c2=cr.getContext("2d");   // crescent cut on its own canvas so the glow behind it stays intact
-    c2.fillStyle="#ece8d4"; c2.beginPath(); c2.arc(s/2,s/2,40,0,7); c2.fill(); c2.globalCompositeOperation="destination-out"; c2.beginPath(); c2.arc(s/2+22,s/2-8,37,0,7); c2.fill();
+    c2.fillStyle="#f0ecd8"; c2.beginPath(); c2.arc(s/2,s/2,44,0,7); c2.fill(); c2.globalCompositeOperation="destination-out"; c2.beginPath(); c2.arc(s/2+19,s/2-8,38,0,7); c2.fill();
     g.drawImage(cr,0,0); },128)}));
   moonSpr.scale.setScalar(7); moonSpr.position.set(ox+9,23,1); moonSpr.visible=false; scene.add(moonSpr);
 });
@@ -2835,7 +2930,9 @@ inZone("metro",()=>{
     g.fillStyle="#c8c8c0"; g.font="bold 36px Courier New"; g.textAlign="center"; g.fillText("HOMEBOUND — LOCAL",s/2,s/2+12); },256)})); sg.position.set(ox+14,2.5,5.8); scene.add(sg);
   for(const x of[ox+6,ox+14,ox+22]){ const f=mkMetroFluorescent(); f.position.set(x,3.08,3); scene.add(f); }
   trainGrp=new THREE.Group(); scene.add(trainGrp);
-  const carMat=surf(TEX.metroMetal,8.6,2.6,2.0,0x535c63);
+  // the same rolling stock as the train he arrived on: painted silver body, blue waistband, clear glass onto a lit interior
+  const carMat=new THREE.MeshLambertMaterial({color:0x9ba5a8});
+  const winGlass=new THREE.MeshBasicMaterial({color:0x7896a4,transparent:true,opacity:.1,depthWrite:false});
   for(let c=0;c<3;c++){ const cx=c*9-9;
     const car=new THREE.Group();
     const roof=box(8.6,.26,2.2,carMat); roof.position.set(cx,2.44,0); car.add(roof);
@@ -2846,20 +2943,22 @@ inZone("metro",()=>{
     trainGrp.add(car);
     for(let w=0;w<5;w++){ const wx=cx-3.2+w*1.6;
       if(c===1&&Math.abs(wx)<1.05)continue;
-      const win=new THREE.Mesh(new THREE.PlaneGeometry(1.1,.7),new THREE.MeshLambertMaterial({color:0x35464d,emissive:0x10181c})); win.position.set(wx,1.7,-1.12); win.rotation.y=Math.PI; trainGrp.add(win);
-      const sill=box(1.12,.035,.035,M.metalDark); sill.position.set(wx,1.3,-1.14); trainGrp.add(sill);
+      const win=new THREE.Mesh(new THREE.PlaneGeometry(1.1,.7),winGlass); win.position.set(wx,1.7,-1.12); win.rotation.y=Math.PI; trainGrp.add(win);
+      for(const [fy,fh] of[[2.07,.05],[1.33,.05]]){ const fr=box(1.16,fh,.04,M.metalDark); fr.position.set(wx,fy,-1.14); trainGrp.add(fr); }
+      for(const fx of[-.565,.565]){ const fr=box(.035,.78,.04,M.metalDark); fr.position.set(wx+fx,1.7,-1.14); trainGrp.add(fr); }
     }
     const floor=box(8.2,.08,1.8,surf(TEX.metroFloor,8.2,1.8,1.0)); floor.position.set(cx,.58,0); trainGrp.add(floor);
-    const ceiling=box(8.2,.08,1.8,surf(TEX.metroMetal,8.2,1.8,1.6,0x40494e)); ceiling.position.set(cx,2.42,0); trainGrp.add(ceiling);
-    const innerWall=box(8.1,1.65,.08,surf(TEX.metroMetal,8.1,1.65,1.8,0x4a555a)); innerWall.position.set(cx,1.48,.78); trainGrp.add(innerWall);
-    for(const sx of[-2.7,0,2.7]){ const seat=box(1.7,.12,.42,new THREE.MeshLambertMaterial({color:0x4b3f4d})); seat.position.set(cx+sx,.86,.38); trainGrp.add(seat); }
-    const strip=box(6.6,.035,.12,new THREE.MeshBasicMaterial({color:0xb4bba2})); strip.position.set(cx,2.36,-.25); trainGrp.add(strip);
-    const interiorLight=new THREE.PointLight(0xb7c9bd,.24,4.5,1.8); interiorLight.position.set(cx,1.85,-.15); trainGrp.add(interiorLight);
+    const ceiling=box(8.2,.08,1.8,surf(TEX.metroMetal,8.2,1.8,1.6,0x808a88)); ceiling.position.set(cx,2.42,0); trainGrp.add(ceiling);
+    const innerWall=box(8.1,1.65,.08,surf(TEX.metroMetal,8.1,1.65,1.8,0x8c9490)); innerWall.position.set(cx,1.48,.78); trainGrp.add(innerWall);
+    for(const sx of[-2.7,0,2.7]){ const seat=box(1.7,.12,.42,new THREE.MeshLambertMaterial({color:0x4d4540})); seat.position.set(cx+sx,.86,.38); trainGrp.add(seat); }
+    const strip=box(6.6,.035,.16,new THREE.MeshBasicMaterial({color:0xf0e8c0})); strip.position.set(cx,2.36,-.25); trainGrp.add(strip);
+    const interiorLight=new THREE.PointLight(0xe8dcb0,.6,5,1.6); interiorLight.position.set(cx,1.85,-.15); trainGrp.add(interiorLight);
   }
   // Visible middle-car boarding bay aligned with the gameplay trigger.
   for(const xDoor of[-.58,.58]){ const jamb=box(.12,1.65,.1,M.metalDark); jamb.position.set(xDoor,1.35,-1.02); trainGrp.add(jamb); }
   const doorHeader=box(1.3,.14,.1,M.metalDark); doorHeader.position.set(0,2.2,-1.02); trainGrp.add(doorHeader);
-  for(let c=0;c<3;c++)put(trainGrp,box(8.6,.16,.05,lam(0x7a3a2a)),c*9-9,1.08,-1.09);     // oxblood waistband: not the line he came in on
+  for(let c=0;c<3;c++){ put(trainGrp,box(8.6,.18,.06,lam(0x2a4a7a)),c*9-9,1.08,-1.1);              // the blue waistband of the line he came in on
+    put(trainGrp,box(8.6,.5,.06,lam(0x343c42)),c*9-9,.35,-1.1); }                                     // dark skirt over the underframe
   dressTrain(trainGrp,{cars:[-9,0,9],carLen:8.6,hz:1.1,roofY:2.44,doors:[0],seats:[-11.7,-9,-6.3,-2.7,0,2.7,6.3,9,11.7],seatY:.86,seatZ:.38,blind:"HER TOWN"});
   trainGrp.position.set(ox+42,0,8); fitTrain(trainGrp); trainGrp.userData.arriving=false;
   addCollider(ox+9,8,8,2.0,"metroTrain");
@@ -3016,14 +3115,24 @@ function mkSky(cx,cz,o={}){
   const c=document.createElement("canvas"); c.width=1024; c.height=512; const g=c.getContext("2d");
   const gr=g.createLinearGradient(0,0,0,512); gr.addColorStop(0,"#04050a"); gr.addColorStop(.3,"#0a0c18"); gr.addColorStop(.43,"#1e1a24");
   gr.addColorStop(.47,"#3a2a2a"); gr.addColorStop(.498,"#6a4428"); gr.addColorStop(.52,"#241812"); gr.addColorStop(1,"#040405"); g.fillStyle=gr; g.fillRect(0,0,1024,512);
-  for(let i=0;i<260;i++){ const x=Math.random()*1024, y=30+Math.random()*215, r=26+Math.random()*90, a=.03+.09*(y/245);   // clouds, warmer and brighter toward the horizon
-    for(const dx of[0,-1024,1024]){ const rg=g.createRadialGradient(x+dx,y,0,x+dx,y,r); rg.addColorStop(0,`rgba(${52+y*.3|0},${48+y*.15|0},${62+y*.04|0},${a})`); rg.addColorStop(1,"rgba(0,0,0,0)");
-      g.fillStyle=rg; g.fillRect(x+dx-r,y-r,r*2,r*2); } }
-  for(let i=0;i<70;i++){ const x=Math.random()*1024, y=20+Math.random()*200, r=30+Math.random()*70;                         // breaks in the deck
-    const rg=g.createRadialGradient(x,y,0,x,y,r); rg.addColorStop(0,"rgba(3,4,9,.5)"); rg.addColorStop(1,"rgba(3,4,9,0)"); g.fillStyle=rg; g.fillRect(x-r,y-r,r*2,r*2); }
-  { const mx=o.moonX??640, my=o.moonY??118; let rg=g.createRadialGradient(mx,my,0,mx,my,80); rg.addColorStop(0,"rgba(190,202,226,.42)"); rg.addColorStop(1,"rgba(190,202,226,0)");
-    g.fillStyle=rg; g.fillRect(mx-80,my-80,160,160); g.fillStyle="rgba(226,230,238,.85)"; g.beginPath(); g.arc(mx,my,11,0,7); g.fill();
-    g.fillStyle="rgba(20,20,30,.5)"; g.fillRect(mx-40,my+2,80,7); g.fillRect(mx-26,my-9,46,4); }                                // cloud bars across the moon
+  // Cloud deck: layered, wide, flat-bottomed billows. Each puff is an ellipse with a dark underside and a lit top
+  // (cold from the moon high up, warm from the city near the horizon), in bands that thicken toward the horizon.
+  const puff=(x,y,w,h,lit,warm)=>{ for(const dx of[0,-1024,1024]){ g.save(); g.translate(x+dx,y); g.scale(w,h);
+      let rg=g.createRadialGradient(0,.25,0,0,0,1); rg.addColorStop(0,"rgba(8,9,16,.55)"); rg.addColorStop(.7,"rgba(10,11,20,.3)"); rg.addColorStop(1,"rgba(10,11,20,0)"); g.fillStyle=rg; g.beginPath(); g.arc(0,0,1,0,7); g.fill();   // shadowed body
+      rg=g.createRadialGradient(0,-.45,0,0,-.35,.9); rg.addColorStop(0,warm?`rgba(150,98,66,${lit})`:`rgba(104,112,140,${lit})`); rg.addColorStop(1,"rgba(60,60,80,0)"); g.fillStyle=rg; g.beginPath(); g.arc(0,-.2,.85,0,7); g.fill();   // lit crown
+      g.restore(); } };
+  for(let band=0;band<7;band++){ const by=40+band*34, n=16+band*5, warm=band>=4;
+    for(let k=0;k<n;k++){ const x=Math.random()*1024, w=46+Math.random()*120+band*8, h=11+Math.random()*16+band*2.5;
+      puff(x,by+Math.random()*26,w,h,.12+band*.05,warm); if(Math.random()<.6)puff(x+(Math.random()-.5)*70,by+8+Math.random()*18,w*.6,h*.7,.16+band*.04,warm); } }
+  for(let i=0;i<26;i++){ const x=Math.random()*1024, y=22+Math.random()*190, w=60+Math.random()*110, h=9+Math.random()*13;                  // breaks in the deck
+    for(const dx of[0,-1024,1024]){ g.save(); g.translate(x+dx,y); g.scale(w,h); const rg=g.createRadialGradient(0,0,0,0,0,1); rg.addColorStop(0,"rgba(3,4,9,.7)"); rg.addColorStop(1,"rgba(3,4,9,0)"); g.fillStyle=rg; g.beginPath(); g.arc(0,0,1,0,7); g.fill(); g.restore(); } }
+  { const mx=o.moonX??640, my=o.moonY??118;                                                                                      // a thin crescent behind a veil of cloud
+    let rg=g.createRadialGradient(mx,my,0,mx,my,120); rg.addColorStop(0,"rgba(196,208,232,.40)"); rg.addColorStop(.35,"rgba(150,164,196,.14)"); rg.addColorStop(1,"rgba(150,164,196,0)");
+    g.fillStyle=rg; g.fillRect(mx-120,my-120,240,240);
+    const mc=document.createElement("canvas"); mc.width=mc.height=128; const m2=mc.getContext("2d");
+    m2.fillStyle="#f0ecd8"; m2.beginPath(); m2.arc(64,64,30,0,7); m2.fill(); m2.globalCompositeOperation="destination-out"; m2.beginPath(); m2.arc(64+17,64-7,27,0,7); m2.fill();
+    g.save(); g.translate(mx,my); g.rotate(-.5); g.drawImage(mc,-64,-64); g.restore();
+    for(let k=0;k<5;k++)puff(mx-70+Math.random()*140,my-12+Math.random()*34,40+Math.random()*60,7+Math.random()*7,.22,false); }                       // wisps drawn over the moon
   const dome=new THREE.Mesh(new THREE.SphereGeometry(280,32,16),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),side:THREE.BackSide,fog:false,depthWrite:false,color:0xcfcfcf}));
   dome.position.set(cx,0,cz); dome.renderOrder=-10; scene.add(dome); skyDomes.push(dome);
   // far towers, as a ring
@@ -3058,6 +3167,7 @@ function nightlifeTick(dt,t){
   if(out){ storm.t-=dt; if(storm.t<=0){ storm.t=16+Math.random()*38; storm.flash=1; later(()=>{ try{AU.thunder();}catch(e){} },500+Math.random()*1900); } }
   storm.flash=Math.max(0,storm.flash-dt*2.6); const f=out&&storm.flash>0?storm.flash*(.55+.45*Math.sin(t*70)):0;
   stormLight.intensity=f*1.5; for(const d of skyDomes)d.material.color.setScalar(.81+f*1.6);
+  for(const d of skyDomes)d.rotation.y+=dt*.006;   // the cloud deck (and the moon in it) drifts
   for(const p of fxPlanes){ p.a+=dt*.018; p.m.position.set(p.cx+Math.sin(p.a)*210,p.y,p.cz+Math.cos(p.a)*210); p.m.visible=Math.sin(t*5.2)>-.3; }
   for(const c of fxCars){ c.m.position.x+=c.v*dt; if(c.v>0&&c.m.position.x>c.x1)c.m.position.x=c.x0-Math.random()*30; if(c.v<0&&c.m.position.x<c.x0)c.m.position.x=c.x1+Math.random()*30; }
   for(const w of fxWalkers){ w.m.position.x+=w.v*dt; if(w.v>0&&w.m.position.x>w.x1)w.m.position.x=w.x0; if(w.v<0&&w.m.position.x<w.x0)w.m.position.x=w.x1; w.m.position.y=Math.abs(Math.sin(t*6+w.ph))*.03; }
@@ -3141,9 +3251,7 @@ inZone("street",()=>{ const ox=-100, W0=ox-1.49, W1=ox+17.49;
   for(const [x,z,ry,col] of[[ox+13.0,6.2,-Math.PI/2+.02,0x3a2c2a],[ox+13.0,13.4,-Math.PI/2-.03,0x26303a],[ox+3.0,19.0,Math.PI/2,0x303a30]]){
     const car=mkSedan(); car.traverse(o=>{ if(o.isMesh&&o.material.isMeshPhongMaterial&&o.material.color.getHex()===0x2c3438)o.material=wetMat(lam(col),.5,34); });
     at(car,x,0,z,ry); addCollider(x,z,2.0,4.4); }
-  { const van=group(), vm=wetMat(lam(0x5a5c58),.4,30); put(van,box(4.6,1.5,1.9,vm),0,1.2,0); put(van,box(1.3,.9,1.86,vm),2.2,.9,0); put(van,box(.05,.6,1.6,M.glassDark),2.86,1.25,0,0,0,.3);
-    for(const [wx,wz] of[[-1.5,-.92],[1.6,-.92],[-1.5,.92],[1.6,.92]])put(van,rod(.34,.34,.22,12,M.rubber),wx,.34,wz,Math.PI/2);
-    put(van,box(2.4,.5,.02,lam(0x3a3c3a)),-.6,1.3,.96); at(van,ox+13.1,0,20.2,-Math.PI/2); addCollider(ox+13.1,20.2,2.1,5.0); }
+  { const van=mkVan(); at(van,ox+13.1,0,20.2,-Math.PI/2); addCollider(ox+13.1,20.2,2.1,5.2); }
   for(const [x,z] of[[ox+1.0,8.6],[ox+15.2,14.6],[ox+1.0,22.2]]){ const bin=rod(.26,.22,.85,10,lam(0x2a3430)); bin.position.set(x,.43,z); scene.add(bin); addCollider(x,z,.55,.55); }
   for(const z of[7.5,15.5,23]){ for(let i=0;i<6;i++){ const t=i/5; const c=box(3.6,.025,.025,M.black); c.position.set(ox-.2+t*16.4,12.5-Math.sin(t*Math.PI)*1.1,z); c.rotation.z=-Math.cos(t*Math.PI)*.2; scene.add(c); } }
   for(const [dx,dz] of[[W0+.09,9.6],[W1-.09,2.4],[W1-.09,20.2],[W0+.09,22.6]]){ const d=rod(.07,.07,19,7,M.metalDark); d.position.set(dx,9.5,dz); scene.add(d); }
@@ -3201,8 +3309,9 @@ inZone("dream1",()=>{ const ox=100;
 
 /* ── 4 · 8TH FLOOR: his flat warm and lived-in; hers cold and stopped ── */
 inZone("floor8",()=>{
-  pl(0x86aac8,.8,5.5,10.4,1.5,7.7);                                     // 8007: the fridge is the only thing still running
-  pl(0x5a708e,.7,7,14.2,2.0,6.6);                                       // street-glow through a window that is not there
+  pl(0x86aac8,.8,5.5,22.9,1.5,6.4);                                     // 8007: the fridge is the only thing still running
+  for(const [x,z] of[[15.2,12.2],[21.2,12.2],[22.9,4.85]])pl(0x5a708e,.75,7,x,2.0,z);   // cold street-glow through her windows
+  pl(0x4a5a74,.45,8,13.0,2.2,5.0);                                      // and what reaches the living room from them
   pl(0xd09858,.5,4,2.6,1.2,7.6);                                        // 8001 bedroom: light under the wardrobe door
   { const mat=box(.7,.02,.45,lam(0x3a3028)); mat.position.set(16.95,.012,1.72); scene.add(mat); }   // 8007's doormat, a year unmoved
 });
@@ -3544,7 +3653,7 @@ inZone("metro",()=>{ const ox=800;
 scene.traverse(o=>{ if(o.isPointLight&&o.decay>1.55){ o.intensity*=1.7; o.distance*=1.35; o.decay=1.5; } });
 
 /* floor 8 is the one level where rooms share walls: the corridor and the two flats */
-LIGHT_ROOMS.floor8=[[-.1,18.1,-.1,2.2],[-.1,9.0,2.2,9.3],[9.0,18.1,2.2,9.3]];
+LIGHT_ROOMS.floor8=[[-.1,18.1,-.1,2.2],[-.1,9.0,2.2,9.3],[9.0,24.1,2.2,13.3]];
 for(const zn in LIGHT_ROOMS){ zoneGroups[zn].updateMatrixWorld(true); const v=new THREE.Vector3();
   zoneGroups[zn].traverse(o=>{ if(!o.isPointLight)return; o.getWorldPosition(v);
     o.userData.room=LIGHT_ROOMS[zn].find(r=>v.x>=r[0]&&v.x<=r[1]&&v.z>=r[2]&&v.z<=r[3])||null; }); }
@@ -3735,6 +3844,8 @@ function tick(){
     const len2=Math.hypot(mx,mz);
     if(len2>0){ mx/=len2;mz/=len2;
       let nx=player.x+mx*sp, nz=player.z+mz*sp;
+      // doorway funnel: inside a train doorway, drift toward its centre line so a slightly off-axis step never wedges on a jamb
+      { const D=DOORWAYS[curZone]; if(D)for(const [dcx,z0,z1] of D){ if(nz>=z0&&nz<=z1&&Math.abs(nx-dcx)<1.1) nx+=(dcx-nx)*Math.min(1,dt*7); } }
       if(!DBG.noclip){ [nx,nz]=collide(nx,nz); [nx,nz]=collide(nx,nz);
         // clamp to current zone bounds
         const B=ZONES[curZone].bounds;

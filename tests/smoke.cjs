@@ -50,7 +50,7 @@ const check = (name, ok, detail = "") => { console.log((ok ? "  ok   " : "  FAIL
   await ev(() => { player.z = 5.2; }); await wait(400);
   check("arrival → street", await use("Up to the street") && await until(() => curZone === "street" && !travelLock, 30000));
   await use("Home");
-  check("front door → dream 1, on foot", await until(() => curZone === "dream1" && !player.seated, 30000));
+  check("front door → dream 1, seated and watching", await until(() => curZone === "dream1" && player.seated, 30000));
   check("dream 1 ends in the chair in 8001 (under 45s)", await until(() => curZone === "floor8" && player.seated, 45000));
   await wait(1800); await ev(() => { keys.KeyE = true; });
   check("standing starts the phone", await until(() => !player.seated && ringing, 15000));
