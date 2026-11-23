@@ -93,3 +93,20 @@ Reviewed from the frames I took (not a full prop-by-prop audit):
 | Platform column blue band | not changed | Cosmetic; left as is. |
 
 Still not exercised: the chase, the 24-box search, pipes, nodes, ledge choice, the endings, audio, and the mossy-brick state of the restock room.
+
+---
+
+## 6. Full visual walkthrough (the "not exercised" list, now exercised)
+
+Method: a scripted playthrough through the game's own interactions (ride, street, dream 1, wake, phone, 8004 note, 8007, dial, lift, alley, generator, chase, 24 boxes, alley again, 21st floor, terrace puzzles, ledge, ending A; then a fresh session through the safe, subway, metro platform, boarding and ending B), with a screenshot and the on-screen subtitle/objective at each beat. 74 + 11 frames reviewed. No console or page errors in either run.
+
+**Confirmed working and looking right:** opening ride and platform; street and Haldane Court; dream 1; the wake in 8001; the phone sequence and objective text; the 8004 note on the new paper; the dial UI; both items dropping; the lobby; the alley; the restock room before and after the chase (old red brick with moss, 24 boxes, wall icons); the terrace key and piece 2 pickups; the 21st-floor corridor; the photo on the terrace door; the terrace (pergola, lights, tank, bench, skyline); tank fill, chimes, piece 3, the ledge reveal; the ledge choice and sit scenes; THE DROP; the face-down frame, safe key and safe; Eileen's letter; the street, the new subway entrance, the metro platform with the figure waiting; boarding; the ride; TRANSIT with its art.
+
+**Found and fixed in this pass**
+1. **The chase target was invisible.** The figure stays about 15 m ahead (as designed: she is always faster), but the dream corridor's fog ended at 16 m and the hall was unlit, so the player followed nothing. Fog now ends at 30 m and she carries a faint cold light for the length of the chase. She reads clearly as a silhouette at the end of the hall.
+2. **The crescent moon in the second alley visit could not be seen.** It was a flat plane at 7 m, edge-on to anyone looking up and mostly hidden by the walls. It is now a camera-facing sprite hung in the slit of sky above the alley, so it appears when the player looks up. (The alley is a deep canyon; you only see it looking up, which is why the subtitle names it.)
+
+**Still open**
+- The 8007 flat and the chase corridor are very dark by design; both are readable with the flashlight but could use a touch more ambient light.
+- Platform column blue band (cosmetic).
+- Ledge and ending scenes were reviewed from still frames only; I did not judge their timing.

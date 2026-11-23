@@ -252,7 +252,7 @@ const ZONES={
   lobbyG:  {ox: 200,oz:0, bounds:[200.35,209.65,.35,5.65], fog:[0x07070c,3,24], bg:0x07070c, rain:false},
   alley:   {ox: 300,oz:0, bounds:[300.35,321.65,-3.65,5.65], fog:[0x0b0d14,5,44], bg:0x090b10, rain:true},
   restock: {ox: 400,oz:0, bounds:[400.35,409.65,.35,7.65], fog:[0x0a0908,2.5,18], bg:0x0a0908, rain:false},
-  dream2:  {ox: 500,oz:0, bounds:[500.4,503.6,.4,45.6],    fog:[0x1a1c1e,3,16], bg:0x1a1c1e, rain:false},
+  dream2:  {ox: 500,oz:0, bounds:[500.4,503.6,.4,45.6],    fog:[0x1a1c1e,4,30], bg:0x1a1c1e, rain:false},
   floor21: {ox: 600,oz:0, bounds:[600.35,617.65,.35,5.65], fog:[0x07070c,3,24], bg:0x07070c, rain:false},
   terrace: {ox: 700,oz:0, bounds:[700.4,723.6,.4,17.6],    fog:[0x05070c,4,32], bg:0x05070c, rain:true},
   metro:   {ox: 800,oz:0, bounds:[800.4,827.6,.4,9.6],     fog:[0x0b0d10,3,26], bg:0x0b0d10, rain:false},
@@ -1059,6 +1059,7 @@ const ixKey=interact(keyR,"Take the Old Restock key",()=>{ keyR.visible=false; i
 
 /* The Figure (glimpse after puzzle solved, corridor west end) */
 const figure=mkFigure(); figure.position.set(1.2,0,1.1); figure.visible=false; _sceneAdd(figure);
+const figureGlow=new THREE.PointLight(0xb4c2d2,0,7,1.4); figureGlow.position.set(0,1.5,.4); figure.add(figureGlow);   // lit only during the chase so she reads at 15 m
 let figureShown=false, figureT=0;
 
 /* ---------------- Notes & journal (hand-authored, per docs) ---------------- */
@@ -2381,10 +2382,13 @@ inZone("alley",()=>{
   const cl=new THREE.PointLight(0xc89050,.8,5,1.7); cl.position.set(ox+17.9,2.4,5.5); scene.add(cl);
   const fix=box(.16,.12,.16,M.metalDark); fix.position.set(ox+17.9,2.5,5.7); scene.add(fix);
   // crescent moon (state 2)
-  moonSpr=new THREE.Mesh(new THREE.PlaneGeometry(1.6,1.6),new THREE.MeshBasicMaterial({transparent:true,opacity:.9,map:tex((g,s)=>{
-    g.clearRect(0,0,s,s); g.fillStyle="#e8e4d0"; g.beginPath(); g.arc(s/2,s/2,58,0,7); g.fill();
-    g.globalCompositeOperation="destination-out"; g.beginPath(); g.arc(s/2+30,s/2-10,54,0,7); g.fill(); },128)}));
-  moonSpr.position.set(ox+11,7.4,3); moonSpr.visible=false; scene.add(moonSpr);
+  // A camera-facing sprite (the old flat plane was edge-on to anyone looking up the canyon) hung in the slit of sky above the alley.
+  moonSpr=new THREE.Sprite(new THREE.SpriteMaterial({transparent:true,opacity:.95,fog:false,depthWrite:false,map:tex((g,s)=>{
+    g.clearRect(0,0,s,s); const gl=g.createRadialGradient(s/2,s/2,10,s/2,s/2,s/2); gl.addColorStop(0,"rgba(220,226,235,.28)"); gl.addColorStop(1,"rgba(220,226,235,0)"); g.fillStyle=gl; g.fillRect(0,0,s,s);
+    const cr=document.createElement("canvas"); cr.width=cr.height=s; const c2=cr.getContext("2d");   // crescent cut on its own canvas so the glow behind it stays intact
+    c2.fillStyle="#ece8d4"; c2.beginPath(); c2.arc(s/2,s/2,40,0,7); c2.fill(); c2.globalCompositeOperation="destination-out"; c2.beginPath(); c2.arc(s/2+22,s/2-8,37,0,7); c2.fill();
+    g.drawImage(cr,0,0); },128)}));
+  moonSpr.scale.setScalar(7); moonSpr.position.set(ox+9,23,1); moonSpr.visible=false; scene.add(moonSpr);
 });
 
 /* ════════ ZONE: RESTOCK ROOM (beats 11 & 13 — generator, then 24 boxes) ════════ */
@@ -2479,6 +2483,7 @@ function startChase(){
   setZone("dream2"); GS.chase=true; dread=.7;
   player.x=502; player.z=44; player.yaw=0; player.pitch=0; player.seated=false;
   figure.visible=true; figure.position.set(502,0,33);
+  figureGlow.intensity=1.1;
   AU.drone();
   say(null,"A hallway that was never on any floor plan. At the end of it: her shape, already walking away.",5000);
   setObjective("<b>Follow her.</b>");
@@ -2504,7 +2509,7 @@ inZone("dream2",()=>{
   const sill=box(1.36,.08,.14,rimM); sill.position.set(ox,.04,.59); scene.add(sill);
 });
 function endChase(){
-  GS.chase=false; figure.visible=false; AU.sting();
+  GS.chase=false; figure.visible=false; figureGlow.intensity=0; AU.sting();
   fadeTo(()=>{
     setZone("restock"); player.x=405; player.z=4; player.yaw=Math.PI; player.pitch=0;
     genSet.visible=false; mossSet.visible=true; mossSet.userData.light.intensity=1.2; genLight.intensity=0;
