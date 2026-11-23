@@ -214,12 +214,16 @@ TEX.photo=tex((g,s)=>{ // Thomas + Eileen, his face blurred to light
   g.strokeStyle="#d8d0bc"; g.lineWidth=10; g.strokeRect(5,5,s-10,s-10); });
 /* Paint a generated image into an existing canvas texture. The procedural drawing stays as the fallback
    (and as the first frame) if the file is missing; nearest filtering keeps the PS2 look either way. */
-function paintArt(t,file,post){ const im=new Image(); im.onload=()=>{ const c=t.image, g=c.getContext("2d"); g.drawImage(im,0,0,c.width,c.height); if(post)post(g,c.width); t.needsUpdate=true; }; im.onerror=()=>{}; im.src=ART(file); }
+function paintArt(t,file,post){ const im=new Image(); im.onload=()=>{ const c=t.image, g=c.getContext("2d"); g.drawImage(im,0,0,c.width,c.height); if(post)post(g,c.width); t.needsUpdate=true;
+    // surf() clones the texture per mesh; clones that were already uploaded (the zone visible at boot) keep the stale procedural
+    // pixels unless they are flagged too, so flag every texture that shares this canvas.
+    scene.traverse(o=>{ const ms=o.material?(Array.isArray(o.material)?o.material:[o.material]):[]; for(const m of ms)if(m.map&&m.map.image===c)m.map.needsUpdate=true; }); }; im.onerror=()=>{}; im.src=ART(file); }
 paintArt(TEX.photo,"photo-tex.jpg");
 /* Generated surface textures replace the procedural ones once loaded (the procedural drawing remains the fallback). */
 [["wallpaper","tex-wallpaper"],["wallpaperOld","tex-wallpaper-old"],["concrete","tex-concrete"],["woodFloor","tex-wood-floor"],["planksOld","tex-planks-old"],
  ["hallFloor","tex-concrete"],["metal","tex-metal"],["metroMetal","tex-metro-metal"],["metroFloor","tex-metro-floor"],["runner","tex-runner"]
-].forEach(([k,f])=>paintArt(TEX[k],f+".jpg"));
+].forEach(([k,f])=>paintArt(TEX[k],f+".jpg",k==="wallpaperOld"?(g,sz)=>{ g.globalCompositeOperation="lighter"; g.fillStyle="rgb(58,66,78)"; g.fillRect(0,0,sz,sz); g.globalCompositeOperation="source-over"; }   // lift the dark generated paper to dingy blue-grey
+  :k==="wallpaper"?(g,sz)=>{ g.globalCompositeOperation="lighter"; g.fillStyle="rgb(22,18,10)"; g.fillRect(0,0,sz,sz); g.globalCompositeOperation="source-over"; }:undefined));
 paintArt(TEX.doorWood,"tex-door-wood.jpg",(g,s)=>{ g.strokeStyle="rgba(14,8,4,.85)"; g.lineWidth=4; g.strokeRect(30,24,s-60,s*.38); g.strokeRect(30,s*.5,s-60,s*.42); });
 TEX.noteSmall=tex((g,s)=>{ g.fillStyle="#cfc6ac"; g.fillRect(0,0,s,s); grime(g,s,8,.15,"120,100,60");
   g.strokeStyle="#6a5a3a"; for(let y=40;y<s;y+=28){g.beginPath();g.moveTo(24,y);g.lineTo(s-24,y+2);g.stroke();} },128);
@@ -618,11 +622,20 @@ function mkHydrant(){ const g=group(); const m=new THREE.MeshLambertMaterial({co
   const cap=new THREE.Mesh(new THREE.SphereGeometry(.14,8,6),m); cap.position.y=.64; g.add(cap);
   for(const a of[0,Math.PI/2,Math.PI]){ const n=new THREE.Mesh(new THREE.CylinderGeometry(.055,.055,.15,6),m);
     n.rotation.z=Math.PI/2; n.rotation.y=a; n.position.set(Math.sin(a)*.17,.4,Math.cos(a)*.17); g.add(n); } return g; }
-function mkHoseCab(){ const g=group(); const body=box(.55,.7,.14,new THREE.MeshLambertMaterial({color:0x6a2620})); g.add(body);
-  const glass=new THREE.Mesh(new THREE.PlaneGeometry(.42,.55),new THREE.MeshLambertMaterial({color:0x191410})); glass.position.z=.075; g.add(glass);
-  const hose=new THREE.Mesh(new THREE.TorusGeometry(.13,.045,6,12),new THREE.MeshLambertMaterial({color:0x7a3a30})); hose.position.z=.06; g.add(hose);
-  const lbl=decal(tex((g2,s)=>{ g2.clearRect(0,0,s,s); g2.fillStyle="#d8cfae"; g2.font="bold 30px Courier New"; g2.textAlign="center";
-    g2.fillText("FIRE HOSE",s/2,s/2+10); },256),.4,.09); lbl.position.set(0,.42,.02); g.add(lbl); return g; }
+function mkHoseCab(){ const g=group(); const red=new THREE.MeshLambertMaterial({color:0x9a2a22}), dark=new THREE.MeshLambertMaterial({color:0x1a1210});
+  // recessed red steel cabinet with a hose reel, brass nozzle, a handle and a lettered glass door
+  const back=box(.62,.86,.05,red); g.add(back);
+  for(const [w,h,x,y] of[[.62,.05,0,.405],[.62,.05,0,-.405],[.05,.86,-.285,0],[.05,.86,.285,0]]){ const fr=box(w,h,.16,red); fr.position.set(x,y,.055); g.add(fr); }
+  const inner=box(.5,.72,.01,dark); inner.position.z=.03; g.add(inner);
+  const reel=new THREE.Group(); reel.position.set(-.04,-.03,.075);
+  for(const r of[.07,.11,.15,.19]){ const t=new THREE.Mesh(new THREE.TorusGeometry(r,.026,6,18),new THREE.MeshLambertMaterial({color:0xb8b0a0})); reel.add(t); }   // coiled canvas hose
+  for(const a of[0,Math.PI/3,2*Math.PI/3]){ const sp=box(.46,.018,.03,new THREE.MeshLambertMaterial({color:0x7a1e18})); sp.rotation.z=a; reel.add(sp); }
+  g.add(reel);
+  const noz=box(.05,.14,.05,new THREE.MeshLambertMaterial({color:0xb08a3a})); noz.position.set(.2,-.18,.07); noz.rotation.z=-.35; g.add(noz);   // brass nozzle on its bracket
+  const glass=new THREE.Mesh(new THREE.PlaneGeometry(.5,.72),new THREE.MeshLambertMaterial({color:0x8a9aa0,transparent:true,opacity:.14,depthWrite:false})); glass.position.z=.14; g.add(glass);
+  const handle=box(.03,.1,.025,new THREE.MeshLambertMaterial({color:0xc8c0a8})); handle.position.set(.23,0,.15); g.add(handle);
+  const lbl=decal(tex((g2,s)=>{ g2.clearRect(0,0,s,s); g2.fillStyle="#e4dcc6"; g2.font="bold 56px Courier New"; g2.textAlign="center";
+    g2.fillText("FIRE HOSE",s/2,s/2+18); },256),.42,.1); lbl.position.set(0,.31,.145); g.add(lbl); return g; }
 function mkBicycle(){ const g=group(); const mm=new THREE.MeshLambertMaterial({color:0x2e3a30});
   { const hp=new THREE.Mesh(new THREE.BoxGeometry(1.5,.95,.3),new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false}));
     hp.position.y=.48; g.add(hp); }
@@ -1095,7 +1108,10 @@ Underlined so hard the pen tore the paper.`},
 <div class="digits">6 1 5</div>
 The drawer she always jammed. She knew he'd be the one to open it.`},
 };
-const JOURNAL_ORDER=["n_8004","n_grief","n_fridge","p10","p34","p56"];
+/* Journal = Thomas's eight notes: five story notes (8004, 8007, generator, terrace door, safe) and three hidden ones
+   (the box, the music box, her fridge note). Her three notebook pages are puzzle clues, kept in a separate group below. */
+const JOURNAL_ORDER=["n_8004","n_grief","n_fridge","n_order1","n_boxes","n_order2","n_terrace","n_letter"];
+const CLUE_PAGES=["p10","p34","p56"];
 const collected=new Set();
 function collectNote(id){ if(collected.has(id))return; collected.add(id); toast("Journal updated — TAB"); renderJournal(); }
 
@@ -1122,11 +1138,13 @@ function closeNote(){ $("noteOverlay").classList.remove("show"); uiOpen=null; re
 function openJournal(){ uiOpen="journal"; document.exitPointerLock?.(); renderJournal(); $("journalOverlay").classList.add("show"); }
 function closeJournal(){ $("journalOverlay").classList.remove("show"); uiOpen=null; relock(); }
 function renderJournal(){ const L=$("jList"); L.innerHTML="";
-  JOURNAL_ORDER.forEach(id=>{ const d=document.createElement("div"); const got=collected.has(id);
+  const addRow=id=>{ const d=document.createElement("div"); const got=collected.has(id);
     d.className="jt"+(got?" got":""); d.textContent=got?NOTES[id].title:"— unread —";
     if(got)d.onclick=()=>{ [...L.children].forEach(c=>c.classList.remove("sel")); d.classList.add("sel");
       $("jRead").innerHTML=NOTES[id].body.replaceAll('<div class="digits">','<div style="font-size:26px;letter-spacing:8px;text-align:center;margin:14px 0;color:#c8a070">'); };
-    L.appendChild(d); });
+    L.appendChild(d); };
+  JOURNAL_ORDER.forEach(addRow);
+  if(CLUE_PAGES.some(id=>collected.has(id))){ const h=document.createElement("div"); h.className="jt"; h.style.cssText="cursor:default;color:#6d7568;font-size:9px;letter-spacing:3px;padding-top:16px"; h.textContent="HER NOTEBOOK · CLUES"; L.appendChild(h); CLUE_PAGES.filter(id=>collected.has(id)).forEach(addRow); }
   if(!collected.size)$("jRead").textContent="No entries yet. Thomas hasn't found the words — or the notes."; }
 
 /* dial UI */
@@ -1557,7 +1575,6 @@ Every minute was chosen.
 
 — E.`},
 });
-JOURNAL_ORDER.push("n_order1","n_boxes","n_order2","n_terrace","n_letter");
 
 /* ---------- new textures ---------- */
 TEX.asphalt=tex((g,s)=>{ g.fillStyle="#181a1e"; g.fillRect(0,0,s,s); speck(g,s,300,"rgba(60,64,72,.5)");
@@ -1749,7 +1766,7 @@ function setArrDoor(k){ const d=arrDoors[1]; if(!d)return; d.userData.dl.positio
 inZone("arrival",()=>{
   const ox=900;
   // platform floor (player side) + track pit
-  floorPlane(ox+11,4.2,23,6,TEX.hallFloor,1.4);
+  floorPlane(ox+11,4.2,23,6,TEX.hallFloor,1.4,0x6c726e);   // darker, cooler floor so it separates from the walls and ceiling
   { const edge=box(23,.06,.18,new THREE.MeshLambertMaterial({color:0xb8a038})); edge.position.set(ox+11,.03,6.0); scene.add(edge); } // yellow platform edge line
   // ── platform furniture: a bench facing the rails, a vending machine still awake, the clock that stopped tonight ──
   { const bn=mkBench(); at(bn,ox+8,0,2.0,Math.PI); addCollider(ox+8,2.0,1.9,.6);
@@ -1763,9 +1780,9 @@ inZone("arrival",()=>{
       g.fillStyle=c2; g.font="bold 26px Courier New"; g.textAlign="center";
       t2.split("|").forEach((ln,i)=>g.fillText(ln,s/2,44+i*32)); grime(g,s,12,.45); },128);
     const t1=posterTex("VISIT|THE COAST|—|IT MISSES YOU","#33424a","#c8b890"); paintArt(t1,"poster-coast.jpg"); const p1=decal(t1,1.0,1.3);
-    p1.position.set(ox+5.5,1.8,1.28); p1.rotation.z=.02; scene.add(p1);
+    p1.position.set(ox+5.5,1.8,1.30); p1.rotation.z=.02; scene.add(p1);
     const t2b=posterTex("HALDANE|WARD|COUNCIL|NOTICES","#4a4034","#d0c8ac"); paintArt(t2b,"poster-council.jpg"); const p2=decal(t2b,.9,1.2);
-    p2.position.set(ox+16.8,1.85,1.28); p2.rotation.z=-.03; scene.add(p2); }
+    p2.position.set(ox+16.8,1.85,1.30); p2.rotation.z=-.03; scene.add(p2); }
   { const pit=new THREE.Mesh(new THREE.PlaneGeometry(23,1.6),new THREE.MeshBasicMaterial({color:0x030304})); pit.rotation.x=-Math.PI/2; pit.position.set(ox+11,-.25,6.9); scene.add(pit); }
   // station shell: back (south) wall tiled, ceiling, ends
   ceilPlane(ox+11,4.2,23,6,3.2);
@@ -1806,6 +1823,9 @@ inZone("arrival",()=>{
   arrTrain.add(car);
   const skirt=box(22,.5,1.72,surf(TEX.metroMetal,22,.5,1.2,0x343c42)); skirt.position.set(0,.35,0); arrTrain.add(skirt);
   const stripe=box(22,.18,.06,new THREE.MeshLambertMaterial({color:0x2a4a7a})); stripe.position.set(0,1.05,-.87); arrTrain.add(stripe);
+  // bogie fairings + wheel arches along the underframe, so the car sits on running gear instead of on the floor like a bus
+  for(const bx of[-7.6,-3.4,3.4,7.6]){ const fair=box(2.5,.34,.1,lam(0x1b2024)); fair.position.set(bx,.22,-.9); arrTrain.add(fair);
+    for(const wx of[-.8,.8]){ const wheel=new THREE.Mesh(new THREE.CylinderGeometry(.3,.3,.06,14),lam(0x0e1012)); wheel.rotation.x=Math.PI/2; wheel.position.set(bx+wx,.3,-.96); arrTrain.add(wheel); } }
   // Glazing you can see through, with body pillars between the openings. The old flat dark
   // panels made the side read as one slab; now the lit, empty interior shows from the platform.
   const winM=new THREE.MeshBasicMaterial({color:0x7896a4,transparent:true,opacity:.1,depthWrite:false});
@@ -1823,7 +1843,7 @@ inZone("arrival",()=>{
   const cabFloor=box(22,.08,1.45,surf(TEX.metroFloor,22,1.45,1.1)); cabFloor.position.set(0,.58,.02); arrTrain.add(cabFloor);
   const cabCeil=box(22,.08,1.42,surf(TEX.metroMetal,22,1.42,2.2,0x808a88)); cabCeil.position.set(0,2.48,.02); arrTrain.add(cabCeil);
   const cabWall=box(21.7,1.65,.08,surf(TEX.metroMetal,21.7,1.65,2.0,0x8c9490)); cabWall.position.set(0,1.48,.72); arrTrain.add(cabWall);
-  for(const x of[-8,-4,0,4,8]){ const seat=box(1.35,.12,.42,new THREE.MeshLambertMaterial({color:0x6a4a3a})); seat.position.set(x,.85,.42); arrTrain.add(seat); }
+  for(const x of[-8,-4,0,4,8]){ const seat=box(1.35,.12,.42,new THREE.MeshLambertMaterial({color:0x4d4540})); seat.position.set(x,.85,.42); arrTrain.add(seat); }
   const cabLight=box(20,.03,.16,new THREE.MeshBasicMaterial({color:0xf0e8c0})); cabLight.position.set(0,2.425,0); arrTrain.add(cabLight);
   for(const lx of[-7,0,7]){ const cabGlow=new THREE.PointLight(0xe8dcb0,.7,6,1.6); cabGlow.position.set(lx,1.9,-.2); arrTrain.add(cabGlow); }
   // far-side windows (black tunnel glass), advert cards and a line map, so the carriage reads from inside
@@ -2002,7 +2022,8 @@ inZone("street",()=>{
     for(const sx of[-1,1]){ const w2=box(.15,1.5,Z1-Z0,tileM); w2.position.set(cx+sx*(W-.075),-.75,(Z0+Z1)/2); scene.add(w2); }
     const endw=box(W*2,1.5,.15,tileM); endw.position.set(cx,-.75,Z1+.075); scene.add(endw);
     const STEPS=8, TD=(Z1-Z0-.2)/STEPS;
-    for(let i2=0;i2<STEPS;i2++){ const top=-.17*(i2+1), st=box(W*2-.3,.3,TD+.01,conc2); st.position.set(cx,top-.15,Z0+.1+TD*(i2+.5)); scene.add(st); }
+    for(let i2=0;i2<STEPS;i2++){ const top=-.17*(i2+1), st=box(W*2-.3,.3,TD+.01,conc2); st.position.set(cx,top-.15,Z0+.1+TD*(i2+.5)); scene.add(st);
+      const nose=box(W*2-.3,.03,.06,new THREE.MeshBasicMaterial({color:0x6f7d6b})); nose.position.set(cx,top+.016,Z0+.1+TD*(i2+1)-.04); scene.add(nose); }   // pale nosing so each tread reads in the dark
     const dark=new THREE.Mesh(new THREE.PlaneGeometry(1.7,1.1),new THREE.MeshBasicMaterial({color:0x010202})); dark.position.set(cx,-.82,Z1-.005); dark.rotation.y=Math.PI; scene.add(dark);
     // parapet + iron railing on both long sides and the far end
     const run=(x0,z0,x1,z1)=>{ const L=Math.hypot(x1-x0,z1-z0), a2=Math.atan2(x1-x0,z1-z0); const m=new THREE.Group(); m.position.set((x0+x1)/2,0,(z0+z1)/2); m.rotation.y=a2;
@@ -2018,10 +2039,10 @@ inZone("street",()=>{
       g.fillStyle="#5ac878"; g.font="bold 64px Courier New"; g.textAlign="center"; g.fillText("SUBWAY",s/2,s/2+20); g.strokeStyle="#5ac878"; g.lineWidth=5; g.strokeRect(6,6,s-12,s-12); },256)}));
     ms.position.set(cx,2.6,Z0-.11); ms.rotation.y=Math.PI; scene.add(ms);
     // light: green wash on the approach and up from the stair
-    const gl1=new THREE.PointLight(0x3aa860,.8,7,1.6); gl1.position.set(cx,2.3,Z0-.8); scene.add(gl1);
+    const gl1=new THREE.PointLight(0x3aa860,.5,6,1.6); gl1.position.set(cx,2.3,Z0-.8); scene.add(gl1);
     const gl2=new THREE.PointLight(0x4ac070,1.5,6,1.4); gl2.position.set(cx,.5,Z0+1.3); scene.add(gl2);
     // chain across the stair head; colliders keep him on the pavement
-    for(let c2=0;c2<6;c2++){ const t2=c2/5; const link=box(.28,.035,.035,M.metal);
+    for(let c2=0;c2<6;c2++){ const t2=c2/5; const link=box(.2,.022,.022,M.metal);
       link.position.set(cx-W+.12+t2*(2*W-.24),1.0-Math.sin(t2*Math.PI)*.14,Z0-.02); link.rotation.z=Math.cos(t2*Math.PI)*.25; scene.add(link); }
     addCollider(cx,Z0-.02,2*W+.4,.3,"metroRail"); addCollider(cx-W,(Z0+Z1)/2,.3,Z1-Z0+.3); addCollider(cx+W,(Z0+Z1)/2,.3,Z1-Z0+.3); addCollider(cx,Z1+.15,2*W+.3,.3);
     const trig=box(2.6,2.4,1.8,new THREE.MeshBasicMaterial({visible:false,side:THREE.DoubleSide})); trig.position.set(cx,1.2,Z0-.6); scene.add(trig);
@@ -2960,7 +2981,7 @@ function finishGame(title,body){
   AU.sirenStop&&AU.sirenStop(); AU.tenantsStop&&AU.tenantsStop();
   $("endTitle").textContent=title;
   $("endBody").innerHTML=body;
-  $("endStats").textContent=`NOTES ${collected.size}/${JOURNAL_ORDER.length} · TIME ${Math.round((performance.now()-startTime)/1000)}s`;
+  $("endStats").textContent=`NOTES ${JOURNAL_ORDER.filter(id=>collected.has(id)).length}/${JOURNAL_ORDER.length} · TIME ${Math.round((performance.now()-startTime)/1000)}s`;
   const e=$("endScreen"), art=title==="THE DROP"?"ending-a.jpg":title==="TRANSIT"?"ending-b.jpg":null;
   if(art)e.style.background=`linear-gradient(rgba(2,3,4,.6),rgba(2,3,4,.86)),url(${ART(art)}) center/cover #000`;
   e.style.display="flex"; requestAnimationFrame(()=>e.style.opacity=1); running=false;
@@ -3166,8 +3187,8 @@ inZone("dream1",()=>{ const ox=100;
   wetGround("dream1",.4,50);
   for(const z of[3.5,9,14.5,20])pl(0xf4f6ff,1.15,9,ox,3.1,z);
   for(const g of gleams)g.material.opacity=.85;
-  for(let i=-1;i<=1;i++){ const L=pl(0x3ad0c0,.9,5,ox+i*1.02,1.3,1.2); fxPulse.push({light:L,base:.9,amp:.45,speed:1.3,phase:i*1.7}); }
-  for(const m of archGlass){ m.emissive.setHex(0x1a6a62); m.opacity=.8; }
+  for(let i=-1;i<=1;i++){ const L=pl(0x6cb4ac,.55,4.2,ox+i*1.02,1.3,1.2); fxPulse.push({light:L,base:.55,amp:.25,speed:1.3,phase:i*1.7}); }
+  for(const m of archGlass){ m.emissive.setHex(0x0f3834); m.opacity=.8; }
   addCollider(ox,10.4,3.4,.3,"dreamHold");   // he can walk the gallery, but not into what happens at the end of it
   // ceiling ribs marching to the vanishing point
   for(let z=1.5;z<24;z+=1.5){ const rib=box(3.2,.14,.1,lam(0xb4b6ba)); rib.position.set(ox,3.33,z); scene.add(rib); }
@@ -3594,7 +3615,7 @@ dbgBtn("dbFigure",()=>{ dbgEnsureRunning(); figureShown=true; figure.visible=tru
   figure.position.set(player.x+Math.sin(player.yaw)*-6,0,player.z+Math.cos(player.yaw)*-6);
   figureT=0; try{AU.drone();}catch(e){} toast("DEBUG: Figure spawned"); });
 dbgBtn("dbFinish",()=>{ dbgEnsureRunning(); finishSlice(); });
-dbgBtn("dbNotes",()=>{ JOURNAL_ORDER.forEach(collectNote); toast("DEBUG: all notes"); });
+dbgBtn("dbNotes",()=>{ JOURNAL_ORDER.concat(CLUE_PAGES).forEach(collectNote); toast("DEBUG: all notes"); });
 dbgBtn("dbItems",()=>{ dbgEnsureRunning();
   piece1.visible=false; keyR.visible=false; ixPiece.enabled=false; ixKey.enabled=false;
   if(!inv.has("piece1"))give("piece1","🧩","PIECE #1");

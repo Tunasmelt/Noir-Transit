@@ -74,3 +74,22 @@ Reviewed from the frames I took (not a full prop-by-prop audit):
 4. Brighten the subway steps; dim the green wash a little.
 5. Add wheels/bogies and roof gear to the arrival train; add glass + label to the fire-hose cabinet.
 6. Run a real end-to-end playthrough (chase, 24 boxes, pipes, nodes, ledge both ways) and file gameplay bugs separately from visual ones.
+
+---
+
+## 5. Fix pass (each claim re-checked in a run first)
+
+| Finding | Re-check | Result |
+|---|---|---|
+| Journal has 11 entries, spills off the panel | confirmed in the journal UI | Now 8 (5 story + 3 hidden: the fridge note, the box note and the music-box note). Her three notebook pages stay readable in a separate "HER NOTEBOOK · CLUES" group. End screen counts the 8. |
+| 8007 wallpaper full of dark slits | confirmed | Root cause was different from my first guess: `surf()` clones each texture, and clones uploaded before the generated image loaded kept the old procedural pixels. Every texture-painted surface in the zone visible at boot (floor 8) was showing the stale version. `paintArt` now flags every clone. The generated old wallpaper was then too dark, so it is lifted to a dingy blue-grey. 8001 now shows the gold floral paper. |
+| Lines across the coast poster | reproduced | z-fighting: the poster sat exactly on the wall face (z = 1.28). Moved to 1.30. Gone. |
+| Subway steps hard to read, chunky chain, strong green wash | confirmed | Pale nosing on every tread (my first attempt put it on the wrong edge, so only one showed; fixed), thinner chain links, green light reduced. |
+| Station reads as one brown mass | confirmed | Platform floor darker and cooler; seats in the train muted. |
+| Dream 1 saturated cyan | confirmed (three glowing panes at the end of the corridor) | Light and emissive toned to a muted teal. |
+| Fire-hose cabinet is a red frame with a ring | confirmed | Rebuilt: recessed steel cabinet, coiled hose reel, brass nozzle, handle, glass door, FIRE HOSE label. |
+| Train looks like a long box | confirmed | Bogie fairings and wheels added along the underframe. They are only a dark band from the platform because the car sits flush; a pit and visible rails would be a larger change. |
+| No baby cry on floor 21 | **claim was weak** | The tenant audio has argument bursts and a falling sine cry; I had not found it on first read. Not a gap. |
+| Platform column blue band | not changed | Cosmetic; left as is. |
+
+Still not exercised: the chase, the 24-box search, pipes, nodes, ledge choice, the endings, audio, and the mossy-brick state of the restock room.
