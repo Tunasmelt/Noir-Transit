@@ -2930,7 +2930,9 @@ inZone("metro",()=>{
     g.fillStyle="#c8c8c0"; g.font="bold 36px Courier New"; g.textAlign="center"; g.fillText("HOMEBOUND — LOCAL",s/2,s/2+12); },256)})); sg.position.set(ox+14,2.5,5.8); scene.add(sg);
   for(const x of[ox+6,ox+14,ox+22]){ const f=mkMetroFluorescent(); f.position.set(x,3.08,3); scene.add(f); }
   trainGrp=new THREE.Group(); scene.add(trainGrp);
-  const carMat=surf(TEX.metroMetal,8.6,2.6,2.0,0x535c63);
+  // the same rolling stock as the train he arrived on: painted silver body, blue waistband, clear glass onto a lit interior
+  const carMat=new THREE.MeshLambertMaterial({color:0x9ba5a8});
+  const winGlass=new THREE.MeshBasicMaterial({color:0x7896a4,transparent:true,opacity:.1,depthWrite:false});
   for(let c=0;c<3;c++){ const cx=c*9-9;
     const car=new THREE.Group();
     const roof=box(8.6,.26,2.2,carMat); roof.position.set(cx,2.44,0); car.add(roof);
@@ -2941,20 +2943,22 @@ inZone("metro",()=>{
     trainGrp.add(car);
     for(let w=0;w<5;w++){ const wx=cx-3.2+w*1.6;
       if(c===1&&Math.abs(wx)<1.05)continue;
-      const win=new THREE.Mesh(new THREE.PlaneGeometry(1.1,.7),new THREE.MeshLambertMaterial({color:0x35464d,emissive:0x10181c})); win.position.set(wx,1.7,-1.12); win.rotation.y=Math.PI; trainGrp.add(win);
-      const sill=box(1.12,.035,.035,M.metalDark); sill.position.set(wx,1.3,-1.14); trainGrp.add(sill);
+      const win=new THREE.Mesh(new THREE.PlaneGeometry(1.1,.7),winGlass); win.position.set(wx,1.7,-1.12); win.rotation.y=Math.PI; trainGrp.add(win);
+      for(const [fy,fh] of[[2.07,.05],[1.33,.05]]){ const fr=box(1.16,fh,.04,M.metalDark); fr.position.set(wx,fy,-1.14); trainGrp.add(fr); }
+      for(const fx of[-.565,.565]){ const fr=box(.035,.78,.04,M.metalDark); fr.position.set(wx+fx,1.7,-1.14); trainGrp.add(fr); }
     }
     const floor=box(8.2,.08,1.8,surf(TEX.metroFloor,8.2,1.8,1.0)); floor.position.set(cx,.58,0); trainGrp.add(floor);
-    const ceiling=box(8.2,.08,1.8,surf(TEX.metroMetal,8.2,1.8,1.6,0x40494e)); ceiling.position.set(cx,2.42,0); trainGrp.add(ceiling);
-    const innerWall=box(8.1,1.65,.08,surf(TEX.metroMetal,8.1,1.65,1.8,0x4a555a)); innerWall.position.set(cx,1.48,.78); trainGrp.add(innerWall);
-    for(const sx of[-2.7,0,2.7]){ const seat=box(1.7,.12,.42,new THREE.MeshLambertMaterial({color:0x4b3f4d})); seat.position.set(cx+sx,.86,.38); trainGrp.add(seat); }
-    const strip=box(6.6,.035,.12,new THREE.MeshBasicMaterial({color:0xb4bba2})); strip.position.set(cx,2.36,-.25); trainGrp.add(strip);
-    const interiorLight=new THREE.PointLight(0xb7c9bd,.24,4.5,1.8); interiorLight.position.set(cx,1.85,-.15); trainGrp.add(interiorLight);
+    const ceiling=box(8.2,.08,1.8,surf(TEX.metroMetal,8.2,1.8,1.6,0x808a88)); ceiling.position.set(cx,2.42,0); trainGrp.add(ceiling);
+    const innerWall=box(8.1,1.65,.08,surf(TEX.metroMetal,8.1,1.65,1.8,0x8c9490)); innerWall.position.set(cx,1.48,.78); trainGrp.add(innerWall);
+    for(const sx of[-2.7,0,2.7]){ const seat=box(1.7,.12,.42,new THREE.MeshLambertMaterial({color:0x4d4540})); seat.position.set(cx+sx,.86,.38); trainGrp.add(seat); }
+    const strip=box(6.6,.035,.16,new THREE.MeshBasicMaterial({color:0xf0e8c0})); strip.position.set(cx,2.36,-.25); trainGrp.add(strip);
+    const interiorLight=new THREE.PointLight(0xe8dcb0,.6,5,1.6); interiorLight.position.set(cx,1.85,-.15); trainGrp.add(interiorLight);
   }
   // Visible middle-car boarding bay aligned with the gameplay trigger.
   for(const xDoor of[-.58,.58]){ const jamb=box(.12,1.65,.1,M.metalDark); jamb.position.set(xDoor,1.35,-1.02); trainGrp.add(jamb); }
   const doorHeader=box(1.3,.14,.1,M.metalDark); doorHeader.position.set(0,2.2,-1.02); trainGrp.add(doorHeader);
-  for(let c=0;c<3;c++)put(trainGrp,box(8.6,.16,.05,lam(0x7a3a2a)),c*9-9,1.08,-1.09);     // oxblood waistband: not the line he came in on
+  for(let c=0;c<3;c++){ put(trainGrp,box(8.6,.18,.06,lam(0x2a4a7a)),c*9-9,1.08,-1.1);              // the blue waistband of the line he came in on
+    put(trainGrp,box(8.6,.5,.06,lam(0x343c42)),c*9-9,.35,-1.1); }                                     // dark skirt over the underframe
   dressTrain(trainGrp,{cars:[-9,0,9],carLen:8.6,hz:1.1,roofY:2.44,doors:[0],seats:[-11.7,-9,-6.3,-2.7,0,2.7,6.3,9,11.7],seatY:.86,seatZ:.38,blind:"HER TOWN"});
   trainGrp.position.set(ox+42,0,8); fitTrain(trainGrp); trainGrp.userData.arriving=false;
   addCollider(ox+9,8,8,2.0,"metroTrain");
