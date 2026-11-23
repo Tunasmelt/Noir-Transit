@@ -606,6 +606,38 @@ function mkSedan(){ const g=group(); const bodyM=wetMat(lam(0x2c3438),.55,36), g
     put(g,box(.03,.1,.3,new THREE.MeshBasicMaterial({color:0x5a1410})),-2.115,.7,hz); }      // dead headlamps, dull tail-lamps
   put(g,box(.02,.1,.34,lam(0x8a8a78)),-2.12,.5,0);                                          // plate
   return g; }
+/* a proper panel van (front at +x, like the sedan): cab with raked screen and side glass, a slab-sided load box with sliding door seams,
+   rear doors, arches with real wheels, bumpers, mirrors, roof rails, dead lamps, plate and a faded name on the flank */
+function mkVan(col=0x6c716d){ const g=group(); const bodyM=wetMat(lam(col),.5,34), glassM=M.glassDark, trim=wetMat(lam(0x15181a),.4,30), seam=lam(0x1c2020);
+  put(g,box(5.0,.62,1.9,bodyM),0,.7,0);                                                       // lower body slab
+  put(g,box(1.25,.14,1.84,bodyM),2.05,.98,0,0,0,-.08);                                        // bonnet
+  put(g,box(1.55,.78,1.84,bodyM),1.05,1.38,0);                                                // cab
+  put(g,box(1.5,.06,1.8,bodyM),1.05,1.8,0);                                                   // cab roof
+  put(g,box(3.35,1.14,1.9,bodyM),-.88,1.4,0);                                                 // load box
+  put(g,box(3.3,.06,1.84,bodyM),-.88,2.0,0);                                                  // box roof
+  put(g,box(.05,.62,1.7,glassM),1.82,1.4,0,0,0,.42);                                          // raked windscreen
+  for(const sz of[-1,1]){
+    put(g,box(.95,.46,.02,glassM),1.28,1.52,sz*.93); put(g,box(.3,.4,.02,glassM),.52,1.52,sz*.93);   // door glass + quarter light
+    put(g,box(.04,.8,.03,seam),.72,1.38,sz*.94); put(g,box(.04,.8,.03,seam),1.78,1.38,sz*.94);       // cab door seams
+    put(g,box(.04,1.0,.03,seam),-.4,1.42,sz*.955); put(g,box(.04,1.0,.03,seam),-2.2,1.42,sz*.955);   // sliding door / panel seams
+    put(g,box(.14,.03,.02,M.chrome),.6,1.18,sz*.95); put(g,box(.14,.03,.02,M.chrome),-.5,1.2,sz*.96); // handles
+    put(g,box(.12,.2,.12,trim),1.88,1.5,sz*1.04);                                              // mirror
+    put(g,box(.05,.05,3.1,M.metalDark),-.88,2.06,sz*.7); }                                     // roof rails
+  for(const rx of[-1.7,-.9,-.1])put(g,box(.04,.05,1.4,M.metalDark),rx,2.07,0);                  // roof bars
+  for(const [wx,wz] of[[-1.45,-.9],[1.65,-.9],[-1.45,.9],[1.65,.9]]){
+    put(g,rod(.37,.37,.24,14,M.rubber),wx,.37,wz,Math.PI/2); put(g,rod(.2,.2,.25,8,lam(0x54585a)),wx,.37,wz,Math.PI/2);
+    put(g,box(.9,.1,.06,trim),wx,.76,wz*1.03); }                                              // arch lips
+  put(g,box(5.14,.16,1.96,trim),0,.4,0);                                                      // sill + bumpers
+  put(g,box(.06,.3,1.2,trim),2.66,.7,0);                                                      // grille
+  for(const hz of[-.7,.7]){ put(g,box(.04,.16,.3,new THREE.MeshBasicMaterial({color:0x4a463a})),2.66,.78,hz);   // dead headlamps
+    put(g,box(.04,.5,.12,new THREE.MeshBasicMaterial({color:0x5a1410})),-2.52,1.0,hz*1.18); }   // tail lamps up the rear pillars
+  for(const dz of[-.45,.45])put(g,box(.04,.9,.03,seam),-2.52,1.4,dz*0+dz); put(g,box(.04,1.0,.03,seam),-2.52,1.4,0);   // rear door seams
+  put(g,box(.02,.12,.36,lam(0x8a8a78)),-2.55,.62,0);                                          // plate
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(2.3,.5),new THREE.MeshLambertMaterial({transparent:true,map:tex((c,sz)=>{ c.clearRect(0,0,sz,sz);
+    c.fillStyle="rgba(190,186,170,.78)"; c.font="bold 34px Courier New"; c.textAlign="center"; c.fillText("ADAIR & SON",sz/2,sz*.42); c.font="22px Courier New"; c.fillText("DELIVERIES · HALDANE WARD",sz/2,sz*.62);
+    c.fillStyle="rgba(0,0,0,.35)"; for(let k=0;k<30;k++)c.fillRect(Math.random()*sz,Math.random()*sz,1+Math.random()*6,1+Math.random()*2); },256)}));
+  sign.position.set(-1.1,1.4,.962); g.add(sign); const sign2=sign.clone(); sign2.position.z=-.962; sign2.rotation.y=Math.PI; g.add(sign2);
+  return g; }
 function mkPhoneBooth(){ const g=group(); const fr=new THREE.MeshLambertMaterial({color:0x35424a});
   for(const [cx,cz] of[[-.42,-.42],[.42,-.42],[-.42,.42],[.42,.42]]){ const p=box(.08,2.3,.08,fr); p.position.set(cx,1.15,cz); g.add(p); }
   const roof=box(1.02,.1,1.02,fr); roof.position.y=2.33; g.add(roof);
@@ -1224,6 +1256,7 @@ addEventListener("mousemove",e=>{ if(!locked||uiOpen)return;
   player.yaw-=e.movementX*.0022*SETTINGS.sens; player.pitch-=e.movementY*.0022*SETTINGS.sens;
   player.pitch=Math.max(-1.45,Math.min(1.45,player.pitch)); });
 
+const DOORWAYS={arrival:[[911,6.0,7.5]],metro:[[814,6.8,7.95]]};   // [centre x, z from, z to] of each train doorway the player walks through
 function collide(nx,nz){ const r=CFG.radius;
   for(const c of colliders){ if(!c.on||c.zone!==curZone)continue;
     const cx=Math.max(c.minX,Math.min(nx,c.maxX)), cz=Math.max(c.minZ,Math.min(nz,c.maxZ));
@@ -1754,10 +1787,15 @@ function dressTrain(g,o){ const dk=lam(0x23292d), roofM=lam(0x3a4246), hz=o.hz, 
     put(g,box(.3,.16,.3,dk),x+dir*.24,.42,0); put(g,box(.2,.5,hz*1.7,dk),x+dir*.1,.3,0);                  // coupler, buffer beam
   }
   // interior
-  for(const dx of o.doors)for(const sx of[-.6,.6])put(g,rod(.018,.018,1.78,6,M.metal),dx+sx,1.5,-hz+.42);
+  // grab poles run floor-to-ceiling and the roof rail sits tight under the roof, so nothing floats or ends short
+  const ceilY=o.roofY-.14, floorY=.6;
+  for(const dx of o.doors)for(const sx of[-.62,.62])put(g,rod(.02,.02,ceilY-floorY,8,M.chrome),dx+sx,(ceilY+floorY)/2,-hz+.42);
   for(const sx of o.seats){ put(g,box(1.36,.44,.07,lam(0x3c444c)),sx,o.seatY+.3,o.seatZ+.22,-.12); put(g,box(.04,.3,.42,dk),sx-.68,o.seatY+.12,o.seatZ); put(g,box(.04,.3,.42,dk),sx+.68,o.seatY+.12,o.seatZ); }
-  for(const cx of o.cars){ put(g,rod(.014,.014,o.carLen-.8,5,M.chrome),cx,2.16,-.1,0,0,Math.PI/2);
-    for(let x=cx-o.carLen/2+.8;x<cx+o.carLen/2-.6;x+=.7)put(g,box(.03,.2,.015,lam(0x8a8478)),x,2.05,-.1,(x*7%1-.5)*.3); }   // straps, some still swinging
+  for(const cx of o.cars){ const railY=ceilY-.07;
+    put(g,rod(.016,.016,o.carLen-.8,6,M.chrome),cx,railY,-.1,0,0,Math.PI/2);                              // roof grab rail
+    for(let x=cx-o.carLen/2+.8;x<=cx+o.carLen/2-.7;x+=2.4)put(g,box(.025,.07,.025,M.chrome),x,railY+.035,-.1);   // brackets up into the roof
+    for(let x=cx-o.carLen/2+1.2;x<cx+o.carLen/2-.9;x+=.8){ put(g,box(.015,.2,.015,lam(0x2a2e30)),x,railY-.11,-.1);   // strap hanging straight from the rail
+      put(g,rod(.05,.05,.012,10,lam(0x8a8478)),x,railY-.23,-.1,Math.PI/2); } }
 }
 
 /* ════════ ZONE: STREET (beat 4 + Ending B exit) ════════ */
@@ -1875,8 +1913,8 @@ inZone("arrival",()=>{
   arrTrain.position.set(ox+11,0,7.3); fitTrain(arrTrain); scene.add(arrTrain);
   // Train collision follows the stationary arrival train, leaving a real
   // doorway gap at the middle carriage entrance.
-  addCollider(ox+5.7,7.3,9.5,1.7,"arrivalTrain");     // carriage side, either side of a 1.1 m doorway
-  addCollider(ox+16.3,7.3,9.5,1.7,"arrivalTrain");
+  addCollider(ox+5.62,7.3,9.34,1.7,"arrivalTrain");   // carriage side, either side of a 1.32 m doorway (was 1.1 m: a diagonal step caught on the jambs)
+  addCollider(ox+16.38,7.3,9.34,1.7,"arrivalTrain");
   addCollider(ox+11,7.75,1.2,.5,"arrivalTrain");       // far side of the vestibule
   const trainInside=box(1.0,1.8,.7,new THREE.MeshBasicMaterial({visible:false,side:THREE.DoubleSide}));
   trainInside.position.set(ox+11,1.35,6.65); scene.add(trainInside);
@@ -2042,9 +2080,7 @@ inZone("street",()=>{
     // light: green wash on the approach and up from the stair
     const gl1=new THREE.PointLight(0x3aa860,.5,6,1.6); gl1.position.set(cx,2.3,Z0-.8); scene.add(gl1);
     const gl2=new THREE.PointLight(0x4ac070,1.5,6,1.4); gl2.position.set(cx,.5,Z0+1.3); scene.add(gl2);
-    // chain across the stair head; colliders keep him on the pavement
-    for(let c2=0;c2<6;c2++){ const t2=c2/5; const link=box(.2,.022,.022,M.metal);
-      link.position.set(cx-W+.12+t2*(2*W-.24),1.0-Math.sin(t2*Math.PI)*.14,Z0-.02); link.rotation.z=Math.cos(t2*Math.PI)*.25; scene.add(link); }
+    // colliders keep him on the pavement at the stair head (the loose chain links that hung here read as stray bars, so they are gone)
     addCollider(cx,Z0-.02,2*W+.4,.3,"metroRail"); addCollider(cx-W,(Z0+Z1)/2,.3,Z1-Z0+.3); addCollider(cx+W,(Z0+Z1)/2,.3,Z1-Z0+.3); addCollider(cx,Z1+.15,2*W+.3,.3);
     const trig=box(2.6,2.4,1.8,new THREE.MeshBasicMaterial({visible:false,side:THREE.DoubleSide})); trig.position.set(cx,1.2,Z0-.6); scene.add(trig);
     interact(trig,"The subway",()=>{
@@ -2384,9 +2420,9 @@ inZone("alley",()=>{
   // crescent moon (state 2)
   // A camera-facing sprite (the old flat plane was edge-on to anyone looking up the canyon) hung in the slit of sky above the alley.
   moonSpr=new THREE.Sprite(new THREE.SpriteMaterial({transparent:true,opacity:.95,fog:false,depthWrite:false,map:tex((g,s)=>{
-    g.clearRect(0,0,s,s); const gl=g.createRadialGradient(s/2,s/2,10,s/2,s/2,s/2); gl.addColorStop(0,"rgba(220,226,235,.28)"); gl.addColorStop(1,"rgba(220,226,235,0)"); g.fillStyle=gl; g.fillRect(0,0,s,s);
+    g.clearRect(0,0,s,s); const gl=g.createRadialGradient(s/2,s/2,10,s/2,s/2,s/2); gl.addColorStop(0,"rgba(220,226,235,.16)"); gl.addColorStop(1,"rgba(220,226,235,0)"); g.fillStyle=gl; g.fillRect(0,0,s,s);
     const cr=document.createElement("canvas"); cr.width=cr.height=s; const c2=cr.getContext("2d");   // crescent cut on its own canvas so the glow behind it stays intact
-    c2.fillStyle="#ece8d4"; c2.beginPath(); c2.arc(s/2,s/2,40,0,7); c2.fill(); c2.globalCompositeOperation="destination-out"; c2.beginPath(); c2.arc(s/2+22,s/2-8,37,0,7); c2.fill();
+    c2.fillStyle="#f0ecd8"; c2.beginPath(); c2.arc(s/2,s/2,44,0,7); c2.fill(); c2.globalCompositeOperation="destination-out"; c2.beginPath(); c2.arc(s/2+19,s/2-8,38,0,7); c2.fill();
     g.drawImage(cr,0,0); },128)}));
   moonSpr.scale.setScalar(7); moonSpr.position.set(ox+9,23,1); moonSpr.visible=false; scene.add(moonSpr);
 });
@@ -3016,14 +3052,24 @@ function mkSky(cx,cz,o={}){
   const c=document.createElement("canvas"); c.width=1024; c.height=512; const g=c.getContext("2d");
   const gr=g.createLinearGradient(0,0,0,512); gr.addColorStop(0,"#04050a"); gr.addColorStop(.3,"#0a0c18"); gr.addColorStop(.43,"#1e1a24");
   gr.addColorStop(.47,"#3a2a2a"); gr.addColorStop(.498,"#6a4428"); gr.addColorStop(.52,"#241812"); gr.addColorStop(1,"#040405"); g.fillStyle=gr; g.fillRect(0,0,1024,512);
-  for(let i=0;i<260;i++){ const x=Math.random()*1024, y=30+Math.random()*215, r=26+Math.random()*90, a=.03+.09*(y/245);   // clouds, warmer and brighter toward the horizon
-    for(const dx of[0,-1024,1024]){ const rg=g.createRadialGradient(x+dx,y,0,x+dx,y,r); rg.addColorStop(0,`rgba(${52+y*.3|0},${48+y*.15|0},${62+y*.04|0},${a})`); rg.addColorStop(1,"rgba(0,0,0,0)");
-      g.fillStyle=rg; g.fillRect(x+dx-r,y-r,r*2,r*2); } }
-  for(let i=0;i<70;i++){ const x=Math.random()*1024, y=20+Math.random()*200, r=30+Math.random()*70;                         // breaks in the deck
-    const rg=g.createRadialGradient(x,y,0,x,y,r); rg.addColorStop(0,"rgba(3,4,9,.5)"); rg.addColorStop(1,"rgba(3,4,9,0)"); g.fillStyle=rg; g.fillRect(x-r,y-r,r*2,r*2); }
-  { const mx=o.moonX??640, my=o.moonY??118; let rg=g.createRadialGradient(mx,my,0,mx,my,80); rg.addColorStop(0,"rgba(190,202,226,.42)"); rg.addColorStop(1,"rgba(190,202,226,0)");
-    g.fillStyle=rg; g.fillRect(mx-80,my-80,160,160); g.fillStyle="rgba(226,230,238,.85)"; g.beginPath(); g.arc(mx,my,11,0,7); g.fill();
-    g.fillStyle="rgba(20,20,30,.5)"; g.fillRect(mx-40,my+2,80,7); g.fillRect(mx-26,my-9,46,4); }                                // cloud bars across the moon
+  // Cloud deck: layered, wide, flat-bottomed billows. Each puff is an ellipse with a dark underside and a lit top
+  // (cold from the moon high up, warm from the city near the horizon), in bands that thicken toward the horizon.
+  const puff=(x,y,w,h,lit,warm)=>{ for(const dx of[0,-1024,1024]){ g.save(); g.translate(x+dx,y); g.scale(w,h);
+      let rg=g.createRadialGradient(0,.25,0,0,0,1); rg.addColorStop(0,"rgba(8,9,16,.55)"); rg.addColorStop(.7,"rgba(10,11,20,.3)"); rg.addColorStop(1,"rgba(10,11,20,0)"); g.fillStyle=rg; g.beginPath(); g.arc(0,0,1,0,7); g.fill();   // shadowed body
+      rg=g.createRadialGradient(0,-.45,0,0,-.35,.9); rg.addColorStop(0,warm?`rgba(150,98,66,${lit})`:`rgba(104,112,140,${lit})`); rg.addColorStop(1,"rgba(60,60,80,0)"); g.fillStyle=rg; g.beginPath(); g.arc(0,-.2,.85,0,7); g.fill();   // lit crown
+      g.restore(); } };
+  for(let band=0;band<7;band++){ const by=40+band*34, n=16+band*5, warm=band>=4;
+    for(let k=0;k<n;k++){ const x=Math.random()*1024, w=46+Math.random()*120+band*8, h=11+Math.random()*16+band*2.5;
+      puff(x,by+Math.random()*26,w,h,.12+band*.05,warm); if(Math.random()<.6)puff(x+(Math.random()-.5)*70,by+8+Math.random()*18,w*.6,h*.7,.16+band*.04,warm); } }
+  for(let i=0;i<26;i++){ const x=Math.random()*1024, y=22+Math.random()*190, w=60+Math.random()*110, h=9+Math.random()*13;                  // breaks in the deck
+    for(const dx of[0,-1024,1024]){ g.save(); g.translate(x+dx,y); g.scale(w,h); const rg=g.createRadialGradient(0,0,0,0,0,1); rg.addColorStop(0,"rgba(3,4,9,.7)"); rg.addColorStop(1,"rgba(3,4,9,0)"); g.fillStyle=rg; g.beginPath(); g.arc(0,0,1,0,7); g.fill(); g.restore(); } }
+  { const mx=o.moonX??640, my=o.moonY??118;                                                                                      // a thin crescent behind a veil of cloud
+    let rg=g.createRadialGradient(mx,my,0,mx,my,120); rg.addColorStop(0,"rgba(196,208,232,.40)"); rg.addColorStop(.35,"rgba(150,164,196,.14)"); rg.addColorStop(1,"rgba(150,164,196,0)");
+    g.fillStyle=rg; g.fillRect(mx-120,my-120,240,240);
+    const mc=document.createElement("canvas"); mc.width=mc.height=128; const m2=mc.getContext("2d");
+    m2.fillStyle="#f0ecd8"; m2.beginPath(); m2.arc(64,64,30,0,7); m2.fill(); m2.globalCompositeOperation="destination-out"; m2.beginPath(); m2.arc(64+17,64-7,27,0,7); m2.fill();
+    g.save(); g.translate(mx,my); g.rotate(-.5); g.drawImage(mc,-64,-64); g.restore();
+    for(let k=0;k<5;k++)puff(mx-70+Math.random()*140,my-12+Math.random()*34,40+Math.random()*60,7+Math.random()*7,.22,false); }                       // wisps drawn over the moon
   const dome=new THREE.Mesh(new THREE.SphereGeometry(280,32,16),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),side:THREE.BackSide,fog:false,depthWrite:false,color:0xcfcfcf}));
   dome.position.set(cx,0,cz); dome.renderOrder=-10; scene.add(dome); skyDomes.push(dome);
   // far towers, as a ring
@@ -3058,6 +3104,7 @@ function nightlifeTick(dt,t){
   if(out){ storm.t-=dt; if(storm.t<=0){ storm.t=16+Math.random()*38; storm.flash=1; later(()=>{ try{AU.thunder();}catch(e){} },500+Math.random()*1900); } }
   storm.flash=Math.max(0,storm.flash-dt*2.6); const f=out&&storm.flash>0?storm.flash*(.55+.45*Math.sin(t*70)):0;
   stormLight.intensity=f*1.5; for(const d of skyDomes)d.material.color.setScalar(.81+f*1.6);
+  for(const d of skyDomes)d.rotation.y+=dt*.006;   // the cloud deck (and the moon in it) drifts
   for(const p of fxPlanes){ p.a+=dt*.018; p.m.position.set(p.cx+Math.sin(p.a)*210,p.y,p.cz+Math.cos(p.a)*210); p.m.visible=Math.sin(t*5.2)>-.3; }
   for(const c of fxCars){ c.m.position.x+=c.v*dt; if(c.v>0&&c.m.position.x>c.x1)c.m.position.x=c.x0-Math.random()*30; if(c.v<0&&c.m.position.x<c.x0)c.m.position.x=c.x1+Math.random()*30; }
   for(const w of fxWalkers){ w.m.position.x+=w.v*dt; if(w.v>0&&w.m.position.x>w.x1)w.m.position.x=w.x0; if(w.v<0&&w.m.position.x<w.x0)w.m.position.x=w.x1; w.m.position.y=Math.abs(Math.sin(t*6+w.ph))*.03; }
@@ -3141,9 +3188,7 @@ inZone("street",()=>{ const ox=-100, W0=ox-1.49, W1=ox+17.49;
   for(const [x,z,ry,col] of[[ox+13.0,6.2,-Math.PI/2+.02,0x3a2c2a],[ox+13.0,13.4,-Math.PI/2-.03,0x26303a],[ox+3.0,19.0,Math.PI/2,0x303a30]]){
     const car=mkSedan(); car.traverse(o=>{ if(o.isMesh&&o.material.isMeshPhongMaterial&&o.material.color.getHex()===0x2c3438)o.material=wetMat(lam(col),.5,34); });
     at(car,x,0,z,ry); addCollider(x,z,2.0,4.4); }
-  { const van=group(), vm=wetMat(lam(0x5a5c58),.4,30); put(van,box(4.6,1.5,1.9,vm),0,1.2,0); put(van,box(1.3,.9,1.86,vm),2.2,.9,0); put(van,box(.05,.6,1.6,M.glassDark),2.86,1.25,0,0,0,.3);
-    for(const [wx,wz] of[[-1.5,-.92],[1.6,-.92],[-1.5,.92],[1.6,.92]])put(van,rod(.34,.34,.22,12,M.rubber),wx,.34,wz,Math.PI/2);
-    put(van,box(2.4,.5,.02,lam(0x3a3c3a)),-.6,1.3,.96); at(van,ox+13.1,0,20.2,-Math.PI/2); addCollider(ox+13.1,20.2,2.1,5.0); }
+  { const van=mkVan(); at(van,ox+13.1,0,20.2,-Math.PI/2); addCollider(ox+13.1,20.2,2.1,5.2); }
   for(const [x,z] of[[ox+1.0,8.6],[ox+15.2,14.6],[ox+1.0,22.2]]){ const bin=rod(.26,.22,.85,10,lam(0x2a3430)); bin.position.set(x,.43,z); scene.add(bin); addCollider(x,z,.55,.55); }
   for(const z of[7.5,15.5,23]){ for(let i=0;i<6;i++){ const t=i/5; const c=box(3.6,.025,.025,M.black); c.position.set(ox-.2+t*16.4,12.5-Math.sin(t*Math.PI)*1.1,z); c.rotation.z=-Math.cos(t*Math.PI)*.2; scene.add(c); } }
   for(const [dx,dz] of[[W0+.09,9.6],[W1-.09,2.4],[W1-.09,20.2],[W0+.09,22.6]]){ const d=rod(.07,.07,19,7,M.metalDark); d.position.set(dx,9.5,dz); scene.add(d); }
@@ -3735,6 +3780,8 @@ function tick(){
     const len2=Math.hypot(mx,mz);
     if(len2>0){ mx/=len2;mz/=len2;
       let nx=player.x+mx*sp, nz=player.z+mz*sp;
+      // doorway funnel: inside a train doorway, drift toward its centre line so a slightly off-axis step never wedges on a jamb
+      { const D=DOORWAYS[curZone]; if(D)for(const [dcx,z0,z1] of D){ if(nz>=z0&&nz<=z1&&Math.abs(nx-dcx)<1.1) nx+=(dcx-nx)*Math.min(1,dt*7); } }
       if(!DBG.noclip){ [nx,nz]=collide(nx,nz); [nx,nz]=collide(nx,nz);
         // clamp to current zone bounds
         const B=ZONES[curZone].bounds;
